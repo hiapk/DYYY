@@ -8,6 +8,175 @@
 #import "DYYYToast.h"
 #import "DYYYUtils.h"
 
+static NSString *DYYYLongPressFilterUserTokenFromStoredEntry(NSString *entry) {
+    NSString *token = [entry stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSRange canonicalSeparatorRange = [token rangeOfString:@"|" options:NSBackwardsSearch];
+    if (canonicalSeparatorRange.location != NSNotFound) {
+        token = NSMaxRange(canonicalSeparatorRange) < token.length
+                    ? [[token substringFromIndex:NSMaxRange(canonicalSeparatorRange)]
+                          stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]]
+                    : @"";
+    } else {
+        NSRange legacySeparatorRange = [token rangeOfString:@"-" options:NSBackwardsSearch];
+        if (legacySeparatorRange.location != NSNotFound) {
+            token = NSMaxRange(legacySeparatorRange) < token.length
+                        ? [[token substringFromIndex:NSMaxRange(legacySeparatorRange)]
+                              stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]]
+                        : @"";
+        }
+    }
+    return token;
+}
+
+static BOOL DYYYLongPressFilterUserEntryMatchesAuthor(NSString *entry, AWEUserModel *author) {
+    NSString *storedToken = DYYYLongPressFilterUserTokenFromStoredEntry(entry);
+    if (storedToken.length == 0 || !author) {
+        return NO;
+    }
+
+    NSString *userID = [author.userID stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (userID.length > 0 &&
+        ([storedToken isEqualToString:userID] ||
+         [storedToken isEqualToString:[@"uid:" stringByAppendingString:userID]])) {
+        return YES;
+    }
+
+    NSString *shortID = [author.shortID stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    return shortID.length > 0 &&
+           ([storedToken isEqualToString:shortID] ||
+            [storedToken isEqualToString:[@"short:" stringByAppendingString:shortID]]);
+}
+
+static NSString *DYYYLongPressFilterUserStoredEntry(AWEUserModel *author) {
+    if (!author) {
+        return nil;
+    }
+
+    NSString *nickname = author.nickname.length > 0 ? author.nickname : @"未知用户";
+    NSString *userID = [author.userID stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (userID.length > 0) {
+        return [NSString stringWithFormat:@"%@|uid:%@", nickname, userID];
+    }
+
+    NSString *shortID = [author.shortID stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (shortID.length > 0) {
+        return [NSString stringWithFormat:@"%@|short:%@", nickname, shortID];
+    }
+
+    return nil;
+}
+
+static NSString *DYYYLongPressFilterUserDisplayID(AWEUserModel *author) {
+    if (author.userID.length > 0) {
+        return author.userID;
+    }
+    return author.shortID ?: @"";
+}
+
+static void DYYYLongPressDismissPanelThen(void (^action)(void)) {
+    void (^work)(void) = ^{
+      if (action) {
+          action();
+      }
+    };
+    AWELongPressPanelManager *panelManager = [%c(AWELongPressPanelManager) shareInstance];
+    if (panelManager && [panelManager respondsToSelector:@selector(dismissWithAnimation:completion:)]) {
+        [panelManager dismissWithAnimation:YES completion:work];
+        return;
+    }
+    work();
+}
+
+static void DYYYLongPressShowFilterUserList(NSArray *userArray) {
+    DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"过滤用户列表" keywords:userArray];
+    keywordListView.addItemTitle = @"添加用户UID";
+    keywordListView.editItemTitle = @"编辑用户";
+    keywordListView.inputPlaceholder = @"请输入用户UID";
+    keywordListView.onConfirm = ^(NSArray *users) {
+      NSString *userString = [users componentsJoinedByString:@","];
+      [[NSUserDefaults standardUserDefaults] setObject:userString forKey:@"DYYYFilterUsers"];
+      [DYYYUtils showToast:@"过滤用户列表已更新"];
+    };
+    [keywordListView show];
+}
+
+static void DYYYLongPressPresentFilterUserAlert(AWEUserModel *author) {
+    NSString *nickname = author.nickname ?: @"未知用户";
+    NSString *displayID = DYYYLongPressFilterUserDisplayID(author);
+    NSString *currentUserFilter = DYYYLongPressFilterUserStoredEntry(author);
+    if (currentUserFilter.length == 0) {
+        [DYYYUtils showToast:@"无法获取该用户的有效ID"];
+        return;
+    }
+
+    NSString *savedUsers = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterUsers"] ?: @"";
+    NSArray *userArray = [savedUsers length] > 0 ? [savedUsers componentsSeparatedByString:@","] : @[];
+    BOOL userExists = NO;
+    for (NSString *userInfo in userArray) {
+        if (DYYYLongPressFilterUserEntryMatchesAuthor(userInfo, author)) {
+            userExists = YES;
+            break;
+        }
+    }
+    NSString *actionButtonText = userExists ? @"取消过滤" : @"添加过滤";
+    [DYYYBottomAlertView showAlertWithTitle:@"过滤用户视频"
+        message:[NSString stringWithFormat:@"用户: %@ (ID: %@)", nickname, displayID]
+        avatarURL:nil
+        cancelButtonText:@"管理过滤列表"
+        confirmButtonText:actionButtonText
+        cancelAction:^{
+          DYYYLongPressShowFilterUserList(userArray);
+        }
+        closeAction:nil
+        confirmAction:^{
+          NSMutableArray *updatedUsers = [NSMutableArray arrayWithArray:userArray];
+          if (userExists) {
+              NSMutableArray *toRemove = [NSMutableArray array];
+              for (NSString *userInfo in updatedUsers) {
+                  if (DYYYLongPressFilterUserEntryMatchesAuthor(userInfo, author)) {
+                      [toRemove addObject:userInfo];
+                  }
+              }
+              [updatedUsers removeObjectsInArray:toRemove];
+              [DYYYUtils showToast:@"已从过滤列表中移除此用户"];
+          } else {
+              [updatedUsers addObject:currentUserFilter];
+              [DYYYUtils showToast:@"已添加此用户到过滤列表"];
+          }
+          NSString *updatedUserString = [updatedUsers componentsJoinedByString:@","];
+          [[NSUserDefaults standardUserDefaults] setObject:updatedUserString forKey:@"DYYYFilterUsers"];
+        }];
+}
+
+static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString *propName) {
+    DYYYFilterSettingsView *filterView = [[DYYYFilterSettingsView alloc] initWithTitle:@"过滤关键词调整" text:descText propName:propName];
+    filterView.onConfirm = ^(NSString *selectedText) {
+      if (selectedText.length > 0) {
+          NSString *currentKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"] ?: @"";
+          NSString *newKeywords;
+          if (currentKeywords.length > 0) {
+              newKeywords = [NSString stringWithFormat:@"%@,%@", currentKeywords, selectedText];
+          } else {
+              newKeywords = selectedText;
+          }
+          [[NSUserDefaults standardUserDefaults] setObject:newKeywords forKey:@"DYYYFilterKeywords"];
+          [DYYYUtils showToast:[NSString stringWithFormat:@"已添加过滤词: %@", selectedText]];
+      }
+    };
+    filterView.onKeywordFilterTap = ^{
+      NSString *savedKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"] ?: @"";
+      NSArray *keywordArray = [savedKeywords length] > 0 ? [savedKeywords componentsSeparatedByString:@","] : @[];
+      DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"设置过滤关键词" keywords:keywordArray];
+      keywordListView.onConfirm = ^(NSArray *keywords) {
+        NSString *keywordString = [keywords componentsJoinedByString:@","];
+        [[NSUserDefaults standardUserDefaults] setObject:keywordString forKey:@"DYYYFilterKeywords"];
+        [DYYYUtils showToast:@"过滤关键词已更新"];
+      };
+      [keywordListView show];
+    };
+    [filterView show];
+}
+
 %hook AWELongPressPanelViewGroupModel
 %property(nonatomic, assign) BOOL isDYYYCustomGroup;
 %end
@@ -15,6 +184,9 @@
 // Modern风格长按面板（新版UI）
 %hook AWEModernLongPressPanelTableViewController
 - (NSArray *)dataArray {
+    // 面板一弹出就记下当前作品，面板里的保存项落到相册时才带得上说明文字。
+    [DYYYManager setAlbumDescriptionContextWithAwemeModel:self.awemeModel];
+
     // 检查是否开启精简模式
     BOOL simplifyPanel = DYYYGetBool(@"DYYYSimplifyLongPressPanel");
 
@@ -152,8 +324,7 @@
                                       completion:^(BOOL success){
                                       }];
                   }
-              
-          
+
           AWELongPressPanelManager *panelManager = [%c(AWELongPressPanelManager) shareInstance];
           [panelManager dismissWithAnimation:YES completion:nil];
         };
@@ -521,66 +692,9 @@
         filterKeywords.describeString = @"过滤用户";
         filterKeywords.action = ^{
           AWEUserModel *author = self.awemeModel.author;
-          NSString *nickname = author.nickname ?: @"未知用户";
-          NSString *shortId = author.shortID ?: @"";
-          // 创建当前用户的过滤格式 "nickname-shortid"
-          NSString *currentUserFilter = [NSString stringWithFormat:@"%@-%@", nickname, shortId];
-          // 获取保存的过滤用户列表
-          NSString *savedUsers = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterUsers"] ?: @"";
-          NSArray *userArray = [savedUsers length] > 0 ? [savedUsers componentsSeparatedByString:@","] : @[];
-          BOOL userExists = NO;
-          for (NSString *userInfo in userArray) {
-              NSArray *components = [userInfo componentsSeparatedByString:@"-"];
-              if (components.count >= 2) {
-                  NSString *userId = [components lastObject];
-                  if ([userId isEqualToString:shortId] && shortId.length > 0) {
-                      userExists = YES;
-                      break;
-                  }
-              }
-          }
-          NSString *actionButtonText = userExists ? @"取消过滤" : @"添加过滤";
-          [DYYYBottomAlertView showAlertWithTitle:@"过滤用户视频"
-              message:[NSString stringWithFormat:@"用户: %@ (ID: %@)", nickname, shortId]
-              avatarURL:nil
-              cancelButtonText:@"管理过滤列表"
-              confirmButtonText:actionButtonText
-              cancelAction:^{
-                DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"过滤用户列表" keywords:userArray];
-                keywordListView.onConfirm = ^(NSArray *users) {
-                  NSString *userString = [users componentsJoinedByString:@","];
-                  [[NSUserDefaults standardUserDefaults] setObject:userString forKey:@"DYYYFilterUsers"];
-                  [DYYYUtils showToast:@"过滤用户列表已更新"];
-                };
-                [keywordListView show];
-              }
-              closeAction:nil
-              confirmAction:^{
-                // 添加或移除用户过滤
-                NSMutableArray *updatedUsers = [NSMutableArray arrayWithArray:userArray];
-                if (userExists) {
-                    // 移除用户
-                    NSMutableArray *toRemove = [NSMutableArray array];
-                    for (NSString *userInfo in updatedUsers) {
-                        NSArray *components = [userInfo componentsSeparatedByString:@"-"];
-                        if (components.count >= 2) {
-                            NSString *userId = [components lastObject];
-                            if ([userId isEqualToString:shortId]) {
-                                [toRemove addObject:userInfo];
-                            }
-                        }
-                    }
-                    [updatedUsers removeObjectsInArray:toRemove];
-                    [DYYYUtils showToast:@"已从过滤列表中移除此用户"];
-                } else {
-                    // 添加用户
-                    [updatedUsers addObject:currentUserFilter];
-                    [DYYYUtils showToast:@"已添加此用户到过滤列表"];
-                }
-                // 保存更新后的列表
-                NSString *updatedUserString = [updatedUsers componentsJoinedByString:@","];
-                [[NSUserDefaults standardUserDefaults] setObject:updatedUserString forKey:@"DYYYFilterUsers"];
-              }];
+          DYYYLongPressDismissPanelThen(^{
+            DYYYLongPressPresentFilterUserAlert(author);
+          });
         };
         [viewModels addObject:filterKeywords];
     }
@@ -598,42 +712,9 @@
           if (self.awemeModel.propGuideV2) {
               propName = self.awemeModel.propGuideV2.propName;
           }
-          DYYYFilterSettingsView *filterView = [[DYYYFilterSettingsView alloc] initWithTitle:@"过滤关键词调整" text:descText propName:propName];
-          filterView.onConfirm = ^(NSString *selectedText) {
-            if (selectedText.length > 0) {
-                NSString *currentKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"] ?: @"";
-                NSString *newKeywords;
-                if (currentKeywords.length > 0) {
-                    newKeywords = [NSString stringWithFormat:@"%@,%@", currentKeywords, selectedText];
-                } else {
-                    newKeywords = selectedText;
-                }
-                [[NSUserDefaults standardUserDefaults] setObject:newKeywords forKey:@"DYYYFilterKeywords"];
-                [DYYYUtils showToast:[NSString stringWithFormat:@"已添加过滤词: %@", selectedText]];
-            }
-          };
-          // 设置过滤关键词按钮回调
-          filterView.onKeywordFilterTap = ^{
-            // 获取保存的关键词
-            NSString *savedKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"] ?: @"";
-            NSArray *keywordArray = [savedKeywords length] > 0 ? [savedKeywords componentsSeparatedByString:@","] : @[];
-            // 创建并显示关键词列表视图
-            DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"设置过滤关键词" keywords:keywordArray];
-            // 设置确认回调
-            keywordListView.onConfirm = ^(NSArray *keywords) {
-              // 将关键词数组转换为逗号分隔的字符串
-              NSString *keywordString = [keywords componentsJoinedByString:@","];
-              // 保存到用户默认设置
-              [[NSUserDefaults standardUserDefaults] setObject:keywordString forKey:@"DYYYFilterKeywords"];
-              // 显示提示
-              [DYYYUtils showToast:@"过滤关键词已更新"];
-            };
-            // 显示关键词列表视图
-            [keywordListView show];
-          };
-          [filterView show];
-          AWELongPressPanelManager *panelManager = [%c(AWELongPressPanelManager) shareInstance];
-          [panelManager dismissWithAnimation:YES completion:nil];
+          DYYYLongPressDismissPanelThen(^{
+            DYYYLongPressPresentFilterKeywordPanel(descText, propName);
+          });
         };
         [viewModels addObject:filterKeywords];
     }
@@ -698,7 +779,7 @@
     NSInteger firstRowCount = 0;
     NSInteger secondRowCount = 0;
 
-    // 确定分配方式与原代码相同
+    // 按当前按钮数量拆成两行排布
     if (totalButtons <= 2) {
         firstRowCount = totalButtons;
     } else if (totalButtons <= 4) {
@@ -779,6 +860,9 @@
 // 经典风格长按面板
 %hook AWELongPressPanelTableViewController
 - (NSArray *)dataArray {
+    // 面板一弹出就记下当前作品，面板里的保存项落到相册时才带得上说明文字。
+    [DYYYManager setAlbumDescriptionContextWithAwemeModel:self.awemeModel];
+
     NSArray *originalArray = %orig;
     if (!originalArray) {
         originalArray = @[];
@@ -921,8 +1005,7 @@
                                       completion:^(BOOL success){
                                       }];
                   }
-              
-          
+
           AWELongPressPanelManager *panelManager = [%c(AWELongPressPanelManager) shareInstance];
           [panelManager dismissWithAnimation:YES completion:nil];
         };
@@ -1291,66 +1374,9 @@
         filterKeywords.describeString = @"过滤用户";
         filterKeywords.action = ^{
           AWEUserModel *author = self.awemeModel.author;
-          NSString *nickname = author.nickname ?: @"未知用户";
-          NSString *shortId = author.shortID ?: @"";
-          // 创建当前用户的过滤格式 "nickname-shortid"
-          NSString *currentUserFilter = [NSString stringWithFormat:@"%@-%@", nickname, shortId];
-          // 获取保存的过滤用户列表
-          NSString *savedUsers = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterUsers"] ?: @"";
-          NSArray *userArray = [savedUsers length] > 0 ? [savedUsers componentsSeparatedByString:@","] : @[];
-          BOOL userExists = NO;
-          for (NSString *userInfo in userArray) {
-              NSArray *components = [userInfo componentsSeparatedByString:@"-"];
-              if (components.count >= 2) {
-                  NSString *userId = [components lastObject];
-                  if ([userId isEqualToString:shortId] && shortId.length > 0) {
-                      userExists = YES;
-                      break;
-                  }
-              }
-          }
-          NSString *actionButtonText = userExists ? @"取消过滤" : @"添加过滤";
-          [DYYYBottomAlertView showAlertWithTitle:@"过滤用户视频"
-              message:[NSString stringWithFormat:@"用户: %@ (ID: %@)", nickname, shortId]
-              avatarURL:nil
-              cancelButtonText:@"管理过滤列表"
-              confirmButtonText:actionButtonText
-              cancelAction:^{
-                DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"过滤用户列表" keywords:userArray];
-                keywordListView.onConfirm = ^(NSArray *users) {
-                  NSString *userString = [users componentsJoinedByString:@","];
-                  [[NSUserDefaults standardUserDefaults] setObject:userString forKey:@"DYYYFilterUsers"];
-                  [DYYYUtils showToast:@"过滤用户列表已更新"];
-                };
-                [keywordListView show];
-              }
-              closeAction:nil
-              confirmAction:^{
-                // 添加或移除用户过滤
-                NSMutableArray *updatedUsers = [NSMutableArray arrayWithArray:userArray];
-                if (userExists) {
-                    // 移除用户
-                    NSMutableArray *toRemove = [NSMutableArray array];
-                    for (NSString *userInfo in updatedUsers) {
-                        NSArray *components = [userInfo componentsSeparatedByString:@"-"];
-                        if (components.count >= 2) {
-                            NSString *userId = [components lastObject];
-                            if ([userId isEqualToString:shortId]) {
-                                [toRemove addObject:userInfo];
-                            }
-                        }
-                    }
-                    [updatedUsers removeObjectsInArray:toRemove];
-                    [DYYYUtils showToast:@"已从过滤列表中移除此用户"];
-                } else {
-                    // 添加用户
-                    [updatedUsers addObject:currentUserFilter];
-                    [DYYYUtils showToast:@"已添加此用户到过滤列表"];
-                }
-                // 保存更新后的列表
-                NSString *updatedUserString = [updatedUsers componentsJoinedByString:@","];
-                [[NSUserDefaults standardUserDefaults] setObject:updatedUserString forKey:@"DYYYFilterUsers"];
-              }];
+          DYYYLongPressDismissPanelThen(^{
+            DYYYLongPressPresentFilterUserAlert(author);
+          });
         };
         [viewModels addObject:filterKeywords];
     }
@@ -1368,42 +1394,9 @@
           if (self.awemeModel.propGuideV2) {
               propName = self.awemeModel.propGuideV2.propName;
           }
-          DYYYFilterSettingsView *filterView = [[DYYYFilterSettingsView alloc] initWithTitle:@"过滤关键词调整" text:descText propName:propName];
-          filterView.onConfirm = ^(NSString *selectedText) {
-            if (selectedText.length > 0) {
-                NSString *currentKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"] ?: @"";
-                NSString *newKeywords;
-                if (currentKeywords.length > 0) {
-                    newKeywords = [NSString stringWithFormat:@"%@,%@", currentKeywords, selectedText];
-                } else {
-                    newKeywords = selectedText;
-                }
-                [[NSUserDefaults standardUserDefaults] setObject:newKeywords forKey:@"DYYYFilterKeywords"];
-                [DYYYUtils showToast:[NSString stringWithFormat:@"已添加过滤词: %@", selectedText]];
-            }
-          };
-          // 设置过滤关键词按钮回调
-          filterView.onKeywordFilterTap = ^{
-            // 获取保存的关键词
-            NSString *savedKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"] ?: @"";
-            NSArray *keywordArray = [savedKeywords length] > 0 ? [savedKeywords componentsSeparatedByString:@","] : @[];
-            // 创建并显示关键词列表视图
-            DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"设置过滤关键词" keywords:keywordArray];
-            // 设置确认回调
-            keywordListView.onConfirm = ^(NSArray *keywords) {
-              // 将关键词数组转换为逗号分隔的字符串
-              NSString *keywordString = [keywords componentsJoinedByString:@","];
-              // 保存到用户默认设置
-              [[NSUserDefaults standardUserDefaults] setObject:keywordString forKey:@"DYYYFilterKeywords"];
-              // 显示提示
-              [DYYYUtils showToast:@"过滤关键词已更新"];
-            };
-            // 显示关键词列表视图
-            [keywordListView show];
-          };
-          [filterView show];
-          AWELongPressPanelManager *panelManager = [%c(AWELongPressPanelManager) shareInstance];
-          [panelManager dismissWithAnimation:YES completion:nil];
+          DYYYLongPressDismissPanelThen(^{
+            DYYYLongPressPresentFilterKeywordPanel(descText, propName);
+          });
         };
         [viewModels addObject:filterKeywords];
     }
@@ -1531,6 +1524,9 @@
 
         BOOL shouldFilter = ([className isEqualToString:@"AWECommentIMSwiftImpl.CommentLongPressPanelForwardElement"] &&
                              [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCommentLongPressDaily"]) ||
+
+                            ([className isEqualToString:@"AWECommentLongPressPanelSwiftImpl.CommentLongPressPanelFavoriteCommentElement"] &&
+                             [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCommentLongPressFavorite"]) ||
 
                             ([className isEqualToString:@"AWECommentLongPressPanelSwiftImpl.CommentLongPressPanelCopyElement"] &&
                              [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideCommentLongPressCopy"]) ||

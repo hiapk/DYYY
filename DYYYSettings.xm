@@ -1,7 +1,13 @@
 #import "AwemeHeaders.h"
 #import "DYYYManager.h"
-#import <MobileCoreServices/MobileCoreServices.h>
+#import <fcntl.h>
+#import <math.h>
+#import <spawn.h>
+#import <stdlib.h>
 #import <UIKit/UIKit.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <unistd.h>
+#import <objc/message.h>
 #import <objc/runtime.h>
 
 #import "DYYYABTestHook.h"
@@ -10,18 +16,22 @@
 #import "DYYYBottomAlertView.h"
 #import "DYYYCustomInputView.h"
 #import "DYYYIconOptionsDialogView.h"
+#import "DYYYKeyboardAvoidanceCoordinator.h"
 #import "DYYYKeywordListView.h"
 #import "DYYYOptionsSelectionView.h"
 
 #import "DYYYConstants.h"
+#import "DYYYFloatClearButton.h"
+#import "DYYYFloatSpeedButton.h"
+#import "DYYYFPSOverlay.h"
+#import "DYYYHighFPSHooks.h"
 #import "DYYYSettingsHelper.h"
 #import "DYYYUtils.h"
 
 @class DYYYIconOptionsDialogView;
 static void showIconOptionsDialog(NSString *title, UIImage *previewImage, NSString *saveFilename, void (^onClear)(void), void (^onSelect)(void));
 
-#import "DYYYBackupPickerDelegate.h"
-#import "DYYYImagePickerDelegate.h"
+#import "DYYYPickerDelegates.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,12 +45,1857 @@ static id dyyyRemoteConfigChangedToken = nil;
 static char kDYYYWeatherViewGestureInstalledKey;
 static char kDYYYWeatherSubviewGestureInstalledKey;
 
+static char kDYYYSettingsSearchCoordinatorKey;
+static BOOL DYYYBuildingSettingsSearchIndex = NO;
+static BOOL DYYYSettingsSearchIndexBuilt = NO;
+static BOOL gDYYYApplyingSettingCellChrome = NO;
+static BOOL gDYYYOpeningSettings = NO;
+static NSString *const kDYYYFeedNowPlayingSettingTitle = @"屏蔽灵动岛抖音播放信息";
+static NSString *const kDYYYFeedNowPlayingSettingIdentifier = @"DYYYDisableFeedNowPlayingInfo";
+static NSString *const kDYYYFeedNowPlayingSVGIconName = @"ic_liveactivityplayslash_dyyy_outlined_20";
+static NSString *const kDYYYEnableHighFPSSettingTitle = @"开启最高可用帧率";
+static NSString *const kDYYYEnableHighFPSSettingIdentifier = @"DYYYEnableHighFPS";
+static NSString *const kDYYYEnableHighFPSSVGIconName = @"ic_highfps_dyyy_outlined_20";
+static NSString *const kDYYYShowFPSOverlaySettingTitle = @"实时帧率显示";
+static NSString *const kDYYYShowFPSOverlaySettingIdentifier = @"DYYYShowFPSOverlay";
+static NSString *const kDYYYShowFPSOverlaySVGIconName = @"ic_fpsoverlay_dyyy_outlined_20";
+static NSString *const kDYYYCommentPausePlaybackSettingIdentifier = @"DYYYCommentPausePlayback";
+static NSString *const kDYYYCommentPausePlaybackSVGIconName = @"ic_commentpause_dyyy_outlined_20";
+static NSString *const kDYYYLoginBypassSVGIconName = @"ic_unlocknew_outlined_20";
+static NSString *const kDYYYHideRecommendAppDownloadSettingIdentifier = @"DYYYHideRecommendAppDownload";
+static NSString *const kDYYYMiniProgramJumpingAdsSettingIdentifier = @"DYYYEnableMiniProgramJumpingAds";
+static NSString *const kDYYYSpeedButtonStickToEdgeSettingIdentifier = DYYY_SPEED_BUTTON_STICK_TO_EDGE_KEY;
+static NSString *const kDYYYClearButtonStickToEdgeSettingIdentifier = DYYY_CLEAR_BUTTON_STICK_TO_EDGE_KEY;
+static NSString *const kDYYYStickToEdgeSettingTitle = @"固定按钮贴边";
+static NSString *const kDYYYStickToEdgeSVGIconName = @"ic_sticktoedge_dyyy_outlined_20";
+static NSString *const kDYYYResetButtonPositionSettingTitle = @"重置按钮位置";
+static NSString *const kDYYYSpeedButtonResetPositionSettingIdentifier = DYYY_RESET_SPEED_BUTTON_POSITION_KEY;
+static NSString *const kDYYYClearButtonResetPositionSettingIdentifier = DYYY_RESET_CLEAR_BUTTON_POSITION_KEY;
+
+static char kDYYYGeneratedSettingIconIdentifierKey;
+static char kDYYYGeneratedSettingIconRetryScheduledKey;
+static char kDYYYInlineOptionsSegmentedControlKey;
+static char kDYYYInlineOptionsIdentifierKey;
+static char kDYYYInlineTextFieldKey;
+static char kDYYYInlineTextFieldIdentifierKey;
+static char kDYYYArrowOriginalHiddenKey;
+static char kDYYYArrowOriginalAlphaKey;
+static char kDYYYArrowHiddenIdentifierKey;
+static char kDYYYDetailOriginalHiddenKey;
+static char kDYYYDetailHiddenIdentifierKey;
+static char kDYYYOriginalInlineSubtitleKey;
+static char kDYYYInlineSubtitleRefreshPendingKey;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern char **environ;
+#ifdef __cplusplus
+}
+#endif
+
+static UIImage *DYYYRenderGeneratedSettingTemplateIcon(NSString *cacheName, CGSize requestedSize, void (^drawBlock)(CGContextRef context, CGSize targetSize)) {
+    CGSize targetSize = requestedSize;
+    if (targetSize.width <= 0 || targetSize.height <= 0) {
+        targetSize = CGSizeMake(20, 20);
+    }
+
+    static NSCache<NSString *, UIImage *> *imageCache;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+      imageCache = [[NSCache alloc] init];
+      imageCache.countLimit = 24;
+    });
+
+    NSString *cacheKey = [NSString stringWithFormat:@"%@-%@", cacheName, NSStringFromCGSize(targetSize)];
+    UIImage *cachedImage = [imageCache objectForKey:cacheKey];
+    if (cachedImage) {
+        return cachedImage;
+    }
+
+    UIGraphicsBeginImageContextWithOptions(targetSize, NO, 0);
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    if (!context) {
+        UIGraphicsEndImageContext();
+        return nil;
+    }
+
+    if (drawBlock) {
+        drawBlock(context, targetSize);
+    }
+
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    image = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    if (image) {
+        [imageCache setObject:image forKey:cacheKey];
+    }
+    return image;
+}
+
+static UIImage *DYYYFeedNowPlayingIcon(CGSize requestedSize) {
+    return DYYYRenderGeneratedSettingTemplateIcon(@"feed-now-playing", requestedSize, ^(CGContextRef context, CGSize targetSize) {
+      CGContextScaleCTM(context, targetSize.width / 20.0, targetSize.height / 20.0);
+      UIColor *iconColor = [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:1.0];
+      [iconColor setFill];
+      [iconColor setStroke];
+
+      UIBezierPath *capsule = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(1.25, 5.25, 17.5, 9.5) cornerRadius:4.7];
+      [capsule appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(2.75, 6.75, 14.5, 6.5) cornerRadius:3.2]];
+      capsule.usesEvenOddFillRule = YES;
+      [capsule fill];
+
+      UIBezierPath *play = [UIBezierPath bezierPath];
+      [play moveToPoint:CGPointMake(8.05, 7.438)];
+      [play addCurveToPoint:CGPointMake(8.95682, 6.93014)
+              controlPoint1:CGPointMake(8.05, 6.97219)
+              controlPoint2:CGPointMake(8.55983, 6.68648)];
+      [play addLineToPoint:CGPointMake(13.2548, 9.56814)];
+      [play addCurveToPoint:CGPointMake(13.2548, 10.4319)
+              controlPoint1:CGPointMake(13.6332, 9.80046)
+              controlPoint2:CGPointMake(13.6332, 10.1995)];
+      [play addLineToPoint:CGPointMake(8.95682, 13.0699)];
+      [play addCurveToPoint:CGPointMake(8.05, 12.562)
+              controlPoint1:CGPointMake(8.55983, 13.3135)
+              controlPoint2:CGPointMake(8.05, 13.0278)];
+      [play closePath];
+      [play fill];
+
+      CGContextSetBlendMode(context, kCGBlendModeClear);
+      CGContextSetLineCap(context, kCGLineCapRound);
+      CGContextSetLineWidth(context, 2.35);
+      CGContextMoveToPoint(context, 3.6, 2.65);
+      CGContextAddLineToPoint(context, 16.4, 17.35);
+      CGContextStrokePath(context);
+
+      CGContextSetBlendMode(context, kCGBlendModeNormal);
+      CGContextSetStrokeColorWithColor(context, iconColor.CGColor);
+      CGContextSetLineWidth(context, 1.5);
+      CGContextMoveToPoint(context, 3.6, 2.65);
+      CGContextAddLineToPoint(context, 16.4, 17.35);
+      CGContextStrokePath(context);
+    });
+}
+
+static UIImage *DYYYEnableHighFPSIcon(CGSize requestedSize) {
+    return DYYYRenderGeneratedSettingTemplateIcon(@"enable-high-fps", requestedSize, ^(CGContextRef context, CGSize targetSize) {
+      CGContextScaleCTM(context, targetSize.width / 20.0, targetSize.height / 20.0);
+      UIColor *iconColor = [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:1.0];
+      [iconColor setStroke];
+      [iconColor setFill];
+      CGContextSetLineWidth(context, 1.55);
+      CGContextSetLineCap(context, kCGLineCapRound);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
+
+      // 屏幕外框，呼应「帧率 / 刷新」
+      UIBezierPath *screen = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(3.1, 2.4, 13.8, 15.2) cornerRadius:2.4];
+      screen.lineWidth = 1.55;
+      [screen stroke];
+
+      // 刷新圆环
+      UIBezierPath *ring = [UIBezierPath bezierPathWithArcCenter:CGPointMake(10.0, 9.4)
+                                                          radius:3.55
+                                                      startAngle:(-55.0 * M_PI / 180.0)
+                                                        endAngle:(235.0 * M_PI / 180.0)
+                                                       clockwise:YES];
+      ring.lineWidth = 1.55;
+      [ring stroke];
+
+      // 环末端箭头
+      UIBezierPath *arrow = [UIBezierPath bezierPath];
+      [arrow moveToPoint:CGPointMake(12.55, 5.55)];
+      [arrow addLineToPoint:CGPointMake(14.35, 5.05)];
+      [arrow addLineToPoint:CGPointMake(13.55, 6.85)];
+      arrow.lineWidth = 1.45;
+      arrow.lineCapStyle = kCGLineCapRound;
+      arrow.lineJoinStyle = kCGLineJoinRound;
+      [arrow stroke];
+
+      // 底部速度短条，暗示更高刷新
+      UIBezierPath *bars = [UIBezierPath bezierPath];
+      [bars moveToPoint:CGPointMake(6.4, 15.55)];
+      [bars addLineToPoint:CGPointMake(8.0, 15.55)];
+      [bars moveToPoint:CGPointMake(9.15, 14.85)];
+      [bars addLineToPoint:CGPointMake(11.35, 14.85)];
+      [bars moveToPoint:CGPointMake(12.5, 14.15)];
+      [bars addLineToPoint:CGPointMake(14.5, 14.15)];
+      bars.lineWidth = 1.45;
+      bars.lineCapStyle = kCGLineCapRound;
+      [bars stroke];
+    });
+}
+
+static UIImage *DYYYShowFPSOverlayIcon(CGSize requestedSize) {
+    return DYYYRenderGeneratedSettingTemplateIcon(@"show-fps-overlay", requestedSize, ^(CGContextRef context, CGSize targetSize) {
+      CGContextScaleCTM(context, targetSize.width / 20.0, targetSize.height / 20.0);
+      UIColor *iconColor = [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:1.0];
+      [iconColor setStroke];
+      [iconColor setFill];
+      CGContextSetLineWidth(context, 1.55);
+      CGContextSetLineCap(context, kCGLineCapRound);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
+
+      // 浮窗胶囊外形
+      UIBezierPath *pill = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(2.4, 6.4, 15.2, 7.2) cornerRadius:3.6];
+      pill.lineWidth = 1.55;
+      [pill stroke];
+
+      // 三条高度递进的柱，表示实时帧率
+      UIBezierPath *bars = [UIBezierPath bezierPath];
+      [bars moveToPoint:CGPointMake(5.6, 11.4)];
+      [bars addLineToPoint:CGPointMake(5.6, 9.6)];
+      [bars moveToPoint:CGPointMake(8.5, 11.4)];
+      [bars addLineToPoint:CGPointMake(8.5, 8.5)];
+      [bars moveToPoint:CGPointMake(11.4, 11.4)];
+      [bars addLineToPoint:CGPointMake(11.4, 7.7)];
+      [bars moveToPoint:CGPointMake(14.3, 11.4)];
+      [bars addLineToPoint:CGPointMake(14.3, 8.9)];
+      bars.lineWidth = 1.55;
+      bars.lineCapStyle = kCGLineCapRound;
+      [bars stroke];
+    });
+}
+
+static UIImage *DYYYCommentPausePlaybackIcon(CGSize requestedSize) {
+    return DYYYRenderGeneratedSettingTemplateIcon(@"comment-pause-playback", requestedSize, ^(CGContextRef context, CGSize targetSize) {
+      CGContextScaleCTM(context, targetSize.width / 20.0, targetSize.height / 20.0);
+      UIColor *iconColor = [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:1.0];
+      [iconColor setFill];
+
+      UIBezierPath *bubble = [UIBezierPath bezierPath];
+      [bubble moveToPoint:CGPointMake(18.2295, 9.19579)];
+      [bubble addCurveToPoint:CGPointMake(9.99951, 1.77002)
+              controlPoint1:CGPointMake(18.2295, 5.01896)
+              controlPoint2:CGPointMake(14.465, 1.77002)];
+      [bubble addCurveToPoint:CGPointMake(1.76953, 9.1959)
+              controlPoint1:CGPointMake(5.53405, 1.77002)
+              controlPoint2:CGPointMake(1.76953, 5.01897)];
+      [bubble addCurveToPoint:CGPointMake(9.37823, 16.1374)
+              controlPoint1:CGPointMake(1.76953, 13.2087)
+              controlPoint2:CGPointMake(5.29956, 15.8541)];
+      [bubble addLineToPoint:CGPointMake(9.37823, 17.3396)];
+      [bubble addCurveToPoint:CGPointMake(10.5834, 18.078)
+              controlPoint1:CGPointMake(9.37823, 17.9499)
+              controlPoint2:CGPointMake(10.0237, 18.3639)];
+      [bubble addCurveToPoint:CGPointMake(15.6612, 14.5993)
+              controlPoint1:CGPointMake(11.2208, 17.7525)
+              controlPoint2:CGPointMake(13.9782, 16.2991)];
+      [bubble addCurveToPoint:CGPointMake(18.2295, 9.19579)
+              controlPoint1:CGPointMake(17.2249, 13.0198)
+              controlPoint2:CGPointMake(18.2295, 11.2807)];
+      [bubble closePath];
+
+      [bubble moveToPoint:CGPointMake(9.99951, 3.23002)];
+      [bubble addCurveToPoint:CGPointMake(16.7695, 9.19579)
+              controlPoint1:CGPointMake(13.8188, 3.23002)
+              controlPoint2:CGPointMake(16.7695, 5.97659)];
+      [bubble addCurveToPoint:CGPointMake(14.6236, 13.5721)
+              controlPoint1:CGPointMake(16.7695, 10.7555)
+              controlPoint2:CGPointMake(16.035, 12.1465)];
+      [bubble addCurveToPoint:CGPointMake(10.8382, 16.2821)
+              controlPoint1:CGPointMake(13.5418, 14.6648)
+              controlPoint2:CGPointMake(11.9072, 15.6785)];
+      [bubble addLineToPoint:CGPointMake(10.8382, 14.7027)];
+      [bubble addLineToPoint:CGPointMake(10.1082, 14.7027)];
+      [bubble addCurveToPoint:CGPointMake(3.22953, 9.1959)
+              controlPoint1:CGPointMake(6.20144, 14.7027)
+              controlPoint2:CGPointMake(3.22953, 12.3416)];
+      [bubble addCurveToPoint:CGPointMake(9.99951, 3.23002)
+              controlPoint1:CGPointMake(3.22953, 5.97658)
+              controlPoint2:CGPointMake(6.1803, 3.23002)];
+      [bubble closePath];
+      bubble.usesEvenOddFillRule = YES;
+      [bubble fill];
+
+      UIBezierPath *leftPause = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(7.8, 7.15, 1.5, 4.7) cornerRadius:0.75];
+      [leftPause fill];
+      UIBezierPath *rightPause = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(10.7, 7.15, 1.5, 4.7) cornerRadius:0.75];
+      [rightPause fill];
+    });
+}
+
+static UIImage *DYYYMiniProgramJumpingAdsIcon(CGSize requestedSize) {
+    return DYYYRenderGeneratedSettingTemplateIcon(@"mini-program-jumping-ads-v2", requestedSize, ^(CGContextRef context, CGSize targetSize) {
+      CGContextScaleCTM(context, targetSize.width / 20.0, targetSize.height / 20.0);
+      UIColor *iconColor = [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:1.0];
+      [iconColor setStroke];
+      CGContextSetLineWidth(context, 1.55);
+      CGContextSetLineCap(context, kCGLineCapRound);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
+
+      UIBezierPath *tiles = [UIBezierPath bezierPath];
+      [tiles appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(3.0, 3.0, 5.2, 5.2) cornerRadius:1.15]];
+      [tiles appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(11.3, 3.3, 3.9, 3.9) cornerRadius:0.9]];
+      [tiles appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(3.3, 11.3, 3.9, 3.9) cornerRadius:0.9]];
+      tiles.lineWidth = 1.55;
+      tiles.lineCapStyle = kCGLineCapRound;
+      tiles.lineJoinStyle = kCGLineJoinRound;
+      [tiles stroke];
+
+      UIBezierPath *arrow = [UIBezierPath bezierPath];
+      [arrow moveToPoint:CGPointMake(10.0, 14.3)];
+      [arrow addLineToPoint:CGPointMake(16.7, 14.3)];
+      [arrow moveToPoint:CGPointMake(14.1, 11.7)];
+      [arrow addLineToPoint:CGPointMake(16.8, 14.3)];
+      [arrow addLineToPoint:CGPointMake(14.1, 16.9)];
+      arrow.lineWidth = 1.65;
+      arrow.lineCapStyle = kCGLineCapRound;
+      arrow.lineJoinStyle = kCGLineJoinRound;
+      [arrow stroke];
+    });
+}
+
+static UIImage *DYYYStickToEdgeIcon(CGSize requestedSize) {
+    return DYYYRenderGeneratedSettingTemplateIcon(@"stick-to-edge", requestedSize, ^(CGContextRef context, CGSize targetSize) {
+      CGContextScaleCTM(context, targetSize.width / 20.0, targetSize.height / 20.0);
+      UIColor *iconColor = [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:1.0];
+      [iconColor setStroke];
+      [iconColor setFill];
+      CGContextSetLineWidth(context, 1.55);
+      CGContextSetLineCap(context, kCGLineCapRound);
+      CGContextSetLineJoin(context, kCGLineJoinRound);
+
+      UIBezierPath *screen = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(3.15, 2.35, 13.7, 15.3) cornerRadius:2.35];
+      screen.lineWidth = 1.55;
+      [screen stroke];
+
+      UIBezierPath *button = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(12.05, 8.15, 3.7, 3.7)];
+      button.lineWidth = 1.45;
+      [button stroke];
+
+      UIBezierPath *guides = [UIBezierPath bezierPath];
+      [guides moveToPoint:CGPointMake(4.55, 6.2)];
+      [guides addLineToPoint:CGPointMake(4.55, 13.8)];
+      [guides moveToPoint:CGPointMake(15.45, 6.2)];
+      [guides addLineToPoint:CGPointMake(15.45, 13.8)];
+      guides.lineWidth = 1.35;
+      guides.lineCapStyle = kCGLineCapRound;
+      [guides stroke];
+    });
+}
+
+@interface AWESettingsTableViewCell : UITableViewCell
+@property(nonatomic, strong) AWESettingItemModel *itemModel;
+@property(nonatomic, strong) UILabel *titleLabel;
+@property(nonatomic, strong) UILabel *subTitleLabel;
+@property(nonatomic, strong) UILabel *fancySubtitleLabel;
+@property(nonatomic, strong) UILabel *detailLabel;
+@property(nonatomic, strong) UIImageView *iconImageView;
+@property(nonatomic, strong) UIImageView *arrowImageView;
+@property(nonatomic, strong) UISwitch *aSwitch;
+@property(nonatomic, strong) UIButton *rightButton;
+@property(nonatomic, strong) UIButton *detailButton;
+- (void)updateSubviews;
+- (void)updateSubviewsAfterLayout;
+- (void)layoutSubviews;
+@end
+
+static BOOL DYYYIsGeneratedSettingIconIdentifier(NSString *identifier) {
+    return [identifier isEqualToString:kDYYYFeedNowPlayingSettingIdentifier] ||
+           [identifier isEqualToString:kDYYYEnableHighFPSSettingIdentifier] ||
+           [identifier isEqualToString:kDYYYShowFPSOverlaySettingIdentifier] ||
+           [identifier isEqualToString:kDYYYCommentPausePlaybackSettingIdentifier] ||
+           [identifier isEqualToString:kDYYYMiniProgramJumpingAdsSettingIdentifier] ||
+           [identifier isEqualToString:kDYYYSpeedButtonStickToEdgeSettingIdentifier] ||
+           [identifier isEqualToString:kDYYYClearButtonStickToEdgeSettingIdentifier];
+}
+
+static UIImage *DYYYGeneratedSettingIconForIdentifier(NSString *identifier, CGSize targetSize) {
+    if ([identifier isEqualToString:kDYYYFeedNowPlayingSettingIdentifier]) {
+        return DYYYFeedNowPlayingIcon(targetSize);
+    }
+    if ([identifier isEqualToString:kDYYYEnableHighFPSSettingIdentifier]) {
+        return DYYYEnableHighFPSIcon(targetSize);
+    }
+    if ([identifier isEqualToString:kDYYYShowFPSOverlaySettingIdentifier]) {
+        return DYYYShowFPSOverlayIcon(targetSize);
+    }
+    if ([identifier isEqualToString:kDYYYCommentPausePlaybackSettingIdentifier]) {
+        return DYYYCommentPausePlaybackIcon(targetSize);
+    }
+    if ([identifier isEqualToString:kDYYYMiniProgramJumpingAdsSettingIdentifier]) {
+        return DYYYMiniProgramJumpingAdsIcon(targetSize);
+    }
+    if ([identifier isEqualToString:kDYYYSpeedButtonStickToEdgeSettingIdentifier] ||
+        [identifier isEqualToString:kDYYYClearButtonStickToEdgeSettingIdentifier]) {
+        return DYYYStickToEdgeIcon(targetSize);
+    }
+    return nil;
+}
+
+static void DYYYApplyGeneratedSettingIconToCellInternal(AWESettingsTableViewCell *cell, BOOL scheduleRetry);
+
+static void DYYYScheduleGeneratedSettingIconReapply(AWESettingsTableViewCell *cell) {
+    if (!cell) {
+        return;
+    }
+
+    if (objc_getAssociatedObject(cell, &kDYYYGeneratedSettingIconRetryScheduledKey)) {
+        return;
+    }
+
+    objc_setAssociatedObject(cell, &kDYYYGeneratedSettingIconRetryScheduledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    __weak AWESettingsTableViewCell *weakCell = cell;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+      DYYYApplyGeneratedSettingIconToCellInternal(weakCell, NO);
+    });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.06 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      DYYYApplyGeneratedSettingIconToCellInternal(weakCell, NO);
+    });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      AWESettingsTableViewCell *strongCell = weakCell;
+      DYYYApplyGeneratedSettingIconToCellInternal(strongCell, NO);
+      if (strongCell) {
+          objc_setAssociatedObject(strongCell, &kDYYYGeneratedSettingIconRetryScheduledKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      }
+    });
+}
+
+static BOOL DYYYSettingTextGroupCenterY(AWESettingsTableViewCell *cell, UIView *targetView, CGFloat *centerY) {
+    if (!cell.titleLabel.superview || !targetView) {
+        return NO;
+    }
+
+    CGRect textFrame = [cell.titleLabel convertRect:cell.titleLabel.bounds toView:targetView];
+    BOOL hasTextFrame = !CGRectIsEmpty(textFrame);
+    NSArray<UILabel *> *subtitleLabels = @[ cell.subTitleLabel ?: (UILabel *)NSNull.null, cell.fancySubtitleLabel ?: (UILabel *)NSNull.null ];
+    for (id candidate in subtitleLabels) {
+        if (![candidate isKindOfClass:UILabel.class]) {
+            continue;
+        }
+        UILabel *label = candidate;
+        if (!label.superview || label.hidden || label.alpha <= 0.01 || label.text.length == 0 || CGRectIsEmpty(label.bounds)) {
+            continue;
+        }
+        CGRect subtitleFrame = [label convertRect:label.bounds toView:targetView];
+        textFrame = hasTextFrame ? CGRectUnion(textFrame, subtitleFrame) : subtitleFrame;
+        hasTextFrame = YES;
+    }
+    if (!hasTextFrame) {
+        return NO;
+    }
+    if (centerY) {
+        *centerY = CGRectGetMidY(textFrame);
+    }
+    return YES;
+}
+
+static void DYYYCenterSettingIconForSubtitle(AWESettingsTableViewCell *cell) {
+    UIImageView *iconView = cell.iconImageView;
+    if (!iconView.superview || iconView.hidden || CGRectGetHeight(iconView.bounds) <= 0.0) {
+        return;
+    }
+    if (cell.itemModel.subTitle.length == 0) {
+        iconView.transform = CGAffineTransformIdentity;
+        return;
+    }
+
+    CGFloat textCenterY = 0.0;
+    if (!DYYYSettingTextGroupCenterY(cell, iconView.superview, &textCenterY)) {
+        return;
+    }
+    CGFloat offsetY = textCenterY - iconView.center.y;
+    offsetY = round(offsetY * UIScreen.mainScreen.scale) / UIScreen.mainScreen.scale;
+    iconView.transform = CGAffineTransformMakeTranslation(0.0, offsetY);
+}
+
+static void DYYYApplyGeneratedSettingIconToCellInternal(AWESettingsTableViewCell *cell, BOOL scheduleRetry) {
+    AWESettingItemModel *itemModel = cell.itemModel;
+    UIImageView *iconView = cell.iconImageView;
+    NSString *identifier = itemModel.identifier;
+
+    if (iconView) {
+        iconView.contentMode = UIViewContentModeScaleAspectFit;
+        iconView.layer.contentsGravity = kCAGravityResizeAspect;
+        iconView.layer.contentsRect = CGRectMake(0.0, 0.0, 1.0, 1.0);
+        DYYYCenterSettingIconForSubtitle(cell);
+    }
+
+    if (!DYYYIsGeneratedSettingIconIdentifier(identifier)) {
+        if (iconView) {
+            objc_setAssociatedObject(iconView, &kDYYYGeneratedSettingIconIdentifierKey, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        }
+        return;
+    }
+
+    if (!iconView) {
+        if (scheduleRetry) {
+            DYYYScheduleGeneratedSettingIconReapply(cell);
+        }
+        return;
+    }
+
+    UIImage *iconImage = DYYYGeneratedSettingIconForIdentifier(identifier, iconView.bounds.size);
+    if (!iconImage) {
+        return;
+    }
+
+    objc_setAssociatedObject(iconView, &kDYYYGeneratedSettingIconIdentifierKey, identifier, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    iconView.image = iconImage;
+    iconView.contentMode = UIViewContentModeScaleAspectFit;
+    iconView.hidden = NO;
+    iconView.alpha = 1.0;
+    iconView.tintColor = cell.titleLabel.textColor ?: cell.tintColor ?: [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:1.0];
+
+    if (scheduleRetry) {
+        DYYYScheduleGeneratedSettingIconReapply(cell);
+    }
+}
+
+static void DYYYApplyGeneratedSettingIconToCell(AWESettingsTableViewCell *cell) {
+    DYYYApplyGeneratedSettingIconToCellInternal(cell, YES);
+}
+
+static void DYYYRemoveSegmentedControlForKey(AWESettingsTableViewCell *cell, const void *key) {
+    UISegmentedControl *segmentedControl = objc_getAssociatedObject(cell, key);
+    if (segmentedControl) {
+        [segmentedControl removeFromSuperview];
+        objc_setAssociatedObject(cell, key, nil, OBJC_ASSOCIATION_ASSIGN);
+    }
+}
+
+static NSArray<NSString *> *DYYYInlineOptionsForIdentifier(NSString *identifier) {
+    NSDictionary<NSString *, NSArray<NSString *> *> *options = @{
+        @"DYYYDefaultSpeed" : @[ @"0.75x", @"1.0x", @"1.25x", @"1.5x", @"2.0x", @"2.5x", @"3.0x" ],
+        @"DYYYLongPressSpeed" : @[ @"0.75x", @"1.0x", @"1.25x", @"1.5x", @"2.0x", @"2.5x", @"3.0x" ],
+        @"DYYYScheduleStyle" : @[ @"进度条两侧上下", @"进度条左侧剩余", @"进度条左侧完整", @"进度条右侧剩余", @"进度条右侧完整" ],
+        @"DYYYLabelStyle" : @[ @"文案标签显示", @"文案标签隐藏", @"文案标签禁止跳转搜索" ],
+        @"DYYYLiveQuality" : @[ @"蓝光帧彩", @"蓝光", @"超清", @"高清", @"标清", @"自动" ],
+        @"DYYYHDRMode" : @[ @"关闭", @"全局屏蔽HDR效果", @"全局过滤HDR作品" ]
+    };
+    return options[identifier];
+}
+
+static CGFloat DYYYInlineOptionsRequiredWidth(NSArray<NSString *> *options) {
+    UIFont *font = [UIFont systemFontOfSize:13.0];
+    CGFloat width = 0.0;
+    for (NSString *option in options) {
+        width += MAX(42.0, ceil([option sizeWithAttributes:@{NSFontAttributeName : font}].width) + 18.0);
+    }
+    return width;
+}
+
+static BOOL DYYYShouldUseInlineOptions(AWESettingItemModel *itemModel, CGFloat contentWidth, CGRect titleFrame) {
+    NSArray<NSString *> *options = DYYYInlineOptionsForIdentifier(itemModel.identifier);
+    if (options.count < 2) {
+        return NO;
+    }
+    if (contentWidth <= 0) {
+        contentWidth = CGRectGetWidth(UIScreen.mainScreen.bounds);
+    }
+    CGFloat titleMaxX = CGRectGetMaxX(titleFrame);
+    if (titleMaxX <= 0) {
+        CGFloat titleWidth = ceil([itemModel.title sizeWithAttributes:@{NSFontAttributeName : [UIFont systemFontOfSize:16.0]}].width);
+        titleMaxX = 64.0 + titleWidth;
+    }
+    CGFloat availableWidth = contentWidth - titleMaxX - 18.0;
+    return DYYYInlineOptionsRequiredWidth(options) <= availableWidth;
+}
+
+static BOOL DYYYShouldUseInlineOptionsForCurrentScreen(AWESettingItemModel *itemModel) {
+    return DYYYShouldUseInlineOptions(itemModel, CGRectGetWidth(UIScreen.mainScreen.bounds), CGRectZero);
+}
+
+static void DYYYApplyInlineOptionsToCell(AWESettingsTableViewCell *cell) {
+    AWESettingItemModel *itemModel = cell.itemModel;
+    NSArray<NSString *> *options = DYYYInlineOptionsForIdentifier(itemModel.identifier);
+    UISegmentedControl *control = objc_getAssociatedObject(cell, &kDYYYInlineOptionsSegmentedControlKey);
+    NSString *configuredIdentifier = objc_getAssociatedObject(cell, &kDYYYInlineOptionsIdentifierKey);
+    BOOL shouldUseInline = options.count > 0 && DYYYShouldUseInlineOptions(itemModel, CGRectGetWidth(cell.contentView.bounds), cell.titleLabel.frame);
+    if (!shouldUseInline) {
+        if (control) {
+            [control removeFromSuperview];
+            objc_setAssociatedObject(cell, &kDYYYInlineOptionsSegmentedControlKey, nil, OBJC_ASSOCIATION_ASSIGN);
+            objc_setAssociatedObject(cell, &kDYYYInlineOptionsIdentifierKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        }
+        return;
+    }
+
+    if (!control || ![configuredIdentifier isEqualToString:itemModel.identifier]) {
+        [control removeFromSuperview];
+        control = [[UISegmentedControl alloc] initWithItems:options];
+        [control addTarget:cell action:@selector(dyyyInlineOptionsSegmentChanged:) forControlEvents:UIControlEventValueChanged];
+        control.translatesAutoresizingMaskIntoConstraints = NO;
+        [cell.contentView addSubview:control];
+        objc_setAssociatedObject(cell, &kDYYYInlineOptionsSegmentedControlKey, control, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(cell, &kDYYYInlineOptionsIdentifierKey, itemModel.identifier, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        [NSLayoutConstraint activateConstraints:@[
+            [control.trailingAnchor constraintEqualToAnchor:cell.contentView.trailingAnchor constant:-18.0],
+            [control.centerYAnchor constraintEqualToAnchor:cell.contentView.centerYAnchor],
+            [control.widthAnchor constraintEqualToConstant:DYYYInlineOptionsRequiredWidth(options)],
+            [control.heightAnchor constraintEqualToConstant:28.0]
+        ]];
+    }
+
+    NSString *selectedValue = [NSUserDefaults.standardUserDefaults stringForKey:itemModel.identifier] ?: itemModel.detail ?: options.firstObject;
+    NSUInteger selectedIndex = [options indexOfObject:selectedValue];
+    control.selectedSegmentIndex = selectedIndex == NSNotFound ? 0 : (NSInteger)selectedIndex;
+    control.enabled = itemModel.isEnable;
+    control.alpha = itemModel.isEnable ? 1.0 : 0.35;
+    itemModel.detail = @"";
+    cell.accessoryType = UITableViewCellAccessoryNone;
+    cell.accessoryView = nil;
+}
+
+static NSSet<NSString *> *DYYYInlineTextInputIdentifiers(void) {
+    static NSSet<NSString *> *identifiers = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+      identifiers = [NSSet setWithArray:@[
+          @"DYYYAvatarViewTransparency", @"DYYYCommentBlurTransparent", @"DYYYCommentContent", @"DYYYDescriptionScale",
+          @"DYYYDescriptionVerticalOffset", @"DYYYElementScale", @"DYYYFilterLowLikes", @"DYYYFilterTimeLimit", @"DYYYFriendsTitle",
+          @"DYYYGeonamesUsername", @"DYYYGlobalTransparency", @"DYYYIPLabelScale", @"DYYYIPLabelVerticalOffset", @"DYYYIndexTitle", @"DYYYInterfaceDownload",
+          @"DYYYMsgTitle", @"DYYYNicknameScale", @"DYYYNicknameVerticalOffset", @"DYYYNotificationCornerRadius", @"DYYYRemoteConfigURL",
+          @"DYYYSelfTitle",
+          @"DYYYSheetBlurTransparent", @"DYYYTabBarHeight", @"DYYYTimelineVerticalPosition", @"DYYYTopBarTransparent",
+          @"DYYYVideoBGColor", @"DYYYDanmuColor", @"DYYYLabelColor", @"DYYYProgressLabelColor",
+          @"DYYYEnableFloatClearButtonSize", @"DYYYSpeedButtonSize", @"DYYYSpeedSettings", @"DYYYAutoHideSpeedButtonTime"
+      ]];
+    });
+    return identifiers;
+}
+
+static NSString *DYYYInlineTextInputPlaceholder(NSString *identifier) {
+    NSDictionary<NSString *, NSString *> *placeholders = @{
+        @"DYYYFilterLowLikes" : @"填0关闭", @"DYYYFilterTimeLimit" : @"单位：天",
+        @"DYYYInterfaceDownload" : @"解析接口以url=结尾", @"DYYYRemoteConfigURL" : @"JSON URL",
+        @"DYYYEnableFloatClearButtonSize" : @"20-60",
+        @"DYYYSpeedButtonSize" : @"20-60",
+        @"DYYYSpeedSettings" : @"逗号分隔",
+        @"DYYYAutoHideSpeedButtonTime" : @"s",
+        @"DYYYCommentContent" : @"不填则默认",
+        @"DYYYVideoBGColor" : @"十六进制", @"DYYYDanmuColor" : @"十六进制或 random",
+        @"DYYYLabelColor" : @"十六进制", @"DYYYProgressLabelColor" : @"十六进制"
+    };
+    return placeholders[identifier] ?: @"不填则默认";
+}
+
+static NSSet<NSString *> *DYYYScaleSectionIdentifiers(void) {
+    static NSSet<NSString *> *identifiers = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+      identifiers = [NSSet setWithArray:@[
+          @"DYYYElementScale", @"DYYYNicknameScale", @"DYYYDescriptionScale", @"DYYYIPLabelScale", @"DYYYNicknameVerticalOffset",
+          @"DYYYDescriptionVerticalOffset", @"DYYYIPLabelVerticalOffset", @"DYYYTabBarHeight"
+      ]];
+    });
+    return identifiers;
+}
+
+static UIKeyboardType DYYYInlineTextInputKeyboardType(NSString *identifier) {
+    if ([DYYYScaleSectionIdentifiers() containsObject:identifier]) {
+        return UIKeyboardTypeDefault;
+    }
+    NSSet<NSString *> *decimalIdentifiers = [NSSet setWithArray:@[
+        @"DYYYAvatarViewTransparency", @"DYYYCommentBlurTransparent", @"DYYYGlobalTransparency", @"DYYYNotificationCornerRadius",
+        @"DYYYSheetBlurTransparent", @"DYYYTimelineVerticalPosition", @"DYYYTopBarTransparent", @"DYYYEnableFloatClearButtonSize",
+        @"DYYYSpeedButtonSize", @"DYYYAutoHideSpeedButtonTime"
+    ]];
+    if ([identifier isEqualToString:@"DYYYFilterLowLikes"] || [identifier isEqualToString:@"DYYYFilterTimeLimit"]) {
+        return UIKeyboardTypeNumberPad;
+    }
+    return [decimalIdentifiers containsObject:identifier] ? UIKeyboardTypeDecimalPad : UIKeyboardTypeDefault;
+}
+
+static NSString *DYYYInlineTextInputCurrentValue(NSString *identifier) {
+    id value = [NSUserDefaults.standardUserDefaults objectForKey:identifier];
+    if ([value isKindOfClass:NSString.class]) {
+        return value;
+    }
+    if ([value isKindOfClass:NSNumber.class]) {
+        return [(NSNumber *)value stringValue];
+    }
+    if ([identifier isEqualToString:@"DYYYEnableFloatClearButtonSize"]) {
+        return @"40";
+    }
+    if ([identifier isEqualToString:@"DYYYSpeedButtonSize"]) {
+        return @"35";
+    }
+    if ([identifier isEqualToString:@"DYYYSpeedSettings"]) {
+        NSString *saved = [NSUserDefaults.standardUserDefaults stringForKey:identifier];
+        return saved.length > 0 ? saved : @"1.0,1.25,1.5,2.0";
+    }
+    if ([identifier isEqualToString:@"DYYYAutoHideSpeedButtonTime"]) {
+        if ([NSUserDefaults.standardUserDefaults objectForKey:identifier] == nil) {
+            return @"30";
+        }
+        return [NSString stringWithFormat:@"%.0f", [NSUserDefaults.standardUserDefaults doubleForKey:identifier]];
+    }
+    if ([identifier isEqualToString:@"DYYYRemoteConfigURL"]) {
+        return DYYY_DEFAULT_ABTEST_URL;
+    }
+    return @"";
+}
+
+static CGFloat DYYYInlineTextInputPreferredWidth(NSString *identifier, CGFloat contentWidth) {
+    NSSet<NSString *> *compactIdentifiers = [NSSet setWithArray:@[
+        @"DYYYAvatarViewTransparency", @"DYYYCommentBlurTransparent", @"DYYYDescriptionScale", @"DYYYDescriptionVerticalOffset",
+        @"DYYYElementScale", @"DYYYEnableFloatClearButtonSize", @"DYYYSpeedButtonSize", @"DYYYAutoHideSpeedButtonTime",
+        @"DYYYFilterLowLikes", @"DYYYFilterTimeLimit", @"DYYYGlobalTransparency",
+        @"DYYYIPLabelScale", @"DYYYIPLabelVerticalOffset", @"DYYYNicknameScale", @"DYYYNicknameVerticalOffset", @"DYYYNotificationCornerRadius",
+        @"DYYYSheetBlurTransparent", @"DYYYTabBarHeight", @"DYYYTimelineVerticalPosition", @"DYYYTopBarTransparent"
+    ]];
+    NSSet<NSString *> *longIdentifiers = [NSSet setWithArray:@[
+        @"DYYYCommentContent", @"DYYYInterfaceDownload", @"DYYYRemoteConfigURL", @"DYYYSpeedSettings"
+    ]];
+    if ([compactIdentifiers containsObject:identifier]) {
+        return MIN(contentWidth * 0.34, 132.0);
+    }
+    if ([longIdentifiers containsObject:identifier]) {
+        return MIN(contentWidth * 0.46, 184.0);
+    }
+    return MIN(contentWidth * 0.40, 160.0);
+}
+
+static NSString *DYYYCommitInlineTextInput(AWESettingItemModel *itemModel, NSString *text) {
+    NSString *identifier = itemModel.identifier;
+    NSString *trimmed = [text ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    NSString *value = [identifier isEqualToString:@"DYYYCommentContent"] ? (text ?: @"") : trimmed;
+
+    if ([identifier isEqualToString:@"DYYYFilterLowLikes"]) {
+        NSScanner *scanner = [NSScanner scannerWithString:value];
+        NSInteger number = 0;
+        if (![scanner scanInteger:&number] || !scanner.isAtEnd) {
+            [DYYYUtils showToast:@"请输入有效的数字"];
+            return nil;
+        }
+        value = [NSString stringWithFormat:@"%ld", (long)MAX(number, 0)];
+        [DYYYSettingsHelper setUserDefaults:value forKey:identifier];
+    } else if ([identifier isEqualToString:@"DYYYEnableFloatClearButtonSize"]) {
+        NSInteger size = value.integerValue;
+        if (size < 20 || size > 60) {
+            [DYYYUtils showToast:@"请输入20-60之间的有效数值"];
+            return nil;
+        }
+        [NSUserDefaults.standardUserDefaults setFloat:size forKey:identifier];
+        value = [NSString stringWithFormat:@"%ld", (long)size];
+        reloadClearButtonConfiguration();
+    } else if ([identifier isEqualToString:@"DYYYSpeedButtonSize"]) {
+        NSInteger size = value.integerValue;
+        if (size < 20 || size > 60) {
+            [DYYYUtils showToast:@"请输入20-60之间的有效数值"];
+            return nil;
+        }
+        [NSUserDefaults.standardUserDefaults setFloat:size forKey:identifier];
+        value = [NSString stringWithFormat:@"%ld", (long)size];
+        speedButtonSize = size;
+        DYYYRefreshFloatSpeedButton();
+    } else if ([identifier isEqualToString:@"DYYYSpeedSettings"]) {
+        if (value.length == 0) {
+            [DYYYUtils showToast:@"请输入有效的倍速数值"];
+            return nil;
+        }
+        [DYYYSettingsHelper setUserDefaults:value forKey:identifier];
+        updateSpeedButtonUI();
+    } else if ([identifier isEqualToString:@"DYYYAutoHideSpeedButtonTime"]) {
+        if (value.length == 0) {
+            [DYYYUtils showToast:@"请输入有效的时间"];
+            return nil;
+        }
+        NSScanner *scanner = [NSScanner scannerWithString:value];
+        double seconds = 0.0;
+        if (![scanner scanDouble:&seconds] || seconds <= 0.0 || !scanner.isAtEnd) {
+            [DYYYUtils showToast:@"请输入有效的时间"];
+            return nil;
+        }
+        [NSUserDefaults.standardUserDefaults setFloat:seconds forKey:identifier];
+        value = [NSString stringWithFormat:@"%.0f", seconds];
+        if (speedButton) {
+            if (speedButton.isEdgeHidden) {
+                [speedButton dyyy_restoreFromEdgeHidden];
+            } else {
+                [speedButton resetFadeTimer];
+            }
+        }
+    } else {
+        [DYYYSettingsHelper setUserDefaults:value forKey:identifier];
+    }
+
+    if ([identifier isEqualToString:@"DYYYInterfaceDownload"]) {
+        [DYYYSettingsHelper updateDependentItemsForSetting:identifier value:value];
+    }
+    [DYYYSettingsHelper handleConflictsAndDependenciesForSetting:identifier isEnabled:(value.length > 0)];
+    itemModel.detail = value;
+    [itemModel refreshCell];
+    return value;
+}
+
+static void DYYYRemoveInlineTextField(AWESettingsTableViewCell *cell) {
+    UITextField *textField = objc_getAssociatedObject(cell, &kDYYYInlineTextFieldKey);
+    if (textField) {
+        if (cell.accessoryView == textField)
+            cell.accessoryView = nil;
+        [textField removeFromSuperview];
+        objc_setAssociatedObject(cell, &kDYYYInlineTextFieldKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        objc_setAssociatedObject(cell, &kDYYYInlineTextFieldIdentifierKey, nil, OBJC_ASSOCIATION_ASSIGN);
+    }
+}
+
+static void DYYYApplyInlineTextFieldToCell(AWESettingsTableViewCell *cell) {
+    AWESettingItemModel *itemModel = cell.itemModel;
+    NSString *identifier = itemModel.identifier;
+    if (![DYYYInlineTextInputIdentifiers() containsObject:identifier]) {
+        DYYYRemoveInlineTextField(cell);
+        return;
+    }
+
+    itemModel.cellTappedBlock = nil;
+    UITextField *textField = objc_getAssociatedObject(cell, &kDYYYInlineTextFieldKey);
+    NSString *configuredIdentifier = objc_getAssociatedObject(cell, &kDYYYInlineTextFieldIdentifierKey);
+    if (!textField || ![configuredIdentifier isEqualToString:identifier]) {
+        DYYYRemoveInlineTextField(cell);
+        textField = [[UITextField alloc] initWithFrame:CGRectMake(0.0, 0.0, 148.0, 32.0)];
+        textField.borderStyle = UITextBorderStyleNone;
+        textField.clearButtonMode = UITextFieldViewModeWhileEditing;
+        textField.textAlignment = NSTextAlignmentCenter;
+        textField.font = [UIFont systemFontOfSize:13.0];
+        textField.returnKeyType = UIReturnKeyDone;
+        textField.layer.cornerRadius = 6.0;
+        textField.layer.borderWidth = 0.5;
+        textField.layer.masksToBounds = YES;
+        [textField addTarget:cell action:@selector(dyyyInlineTextEditingDidBegin:) forControlEvents:UIControlEventEditingDidBegin];
+        [textField addTarget:cell action:@selector(dyyyInlineTextEditingDidEnd:) forControlEvents:UIControlEventEditingDidEnd];
+        [textField addTarget:cell action:@selector(dyyyInlineTextReturn:) forControlEvents:UIControlEventEditingDidEndOnExit];
+        [cell.contentView addSubview:textField];
+        objc_setAssociatedObject(cell, &kDYYYInlineTextFieldKey, textField, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(cell, &kDYYYInlineTextFieldIdentifierKey, identifier, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    }
+
+    NSString *placeholder = DYYYInlineTextInputPlaceholder(identifier);
+    BOOL usesLightBackground = [DYYYUtils usesDouyinLightBackground];
+    UIColor *textColor = usesLightBackground ? [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:1.0]
+                                               : [UIColor colorWithWhite:1.0 alpha:0.90];
+    UIColor *placeholderColor = usesLightBackground ? [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:0.46]
+                                                      : [UIColor colorWithWhite:1.0 alpha:0.46];
+    UIColor *fieldColor = usesLightBackground ? [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:0.05]
+                                                : [UIColor colorWithWhite:1.0 alpha:0.08];
+    UIColor *borderColor = usesLightBackground ? [UIColor colorWithRed:22.0 / 255.0 green:24.0 / 255.0 blue:35.0 / 255.0 alpha:0.14]
+                                                 : [UIColor colorWithWhite:1.0 alpha:0.18];
+    textField.placeholder = placeholder;
+    textField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:placeholder
+                                                                      attributes:@{ NSForegroundColorAttributeName : placeholderColor }];
+    textField.textColor = textColor;
+    textField.tintColor = textColor;
+    textField.backgroundColor = fieldColor;
+    textField.layer.borderColor = borderColor.CGColor;
+    textField.keyboardAppearance = usesLightBackground ? UIKeyboardAppearanceDefault : UIKeyboardAppearanceDark;
+    textField.keyboardType = DYYYInlineTextInputKeyboardType(identifier);
+    textField.enabled = itemModel.isEnable;
+    textField.alpha = itemModel.isEnable ? 1.0 : 0.35;
+    if (!textField.isFirstResponder) {
+        textField.text = DYYYInlineTextInputCurrentValue(identifier);
+    }
+
+    if (textField.superview != cell.contentView) {
+        [textField removeFromSuperview];
+        [cell.contentView addSubview:textField];
+    }
+    if (cell.accessoryView == textField)
+        cell.accessoryView = nil;
+
+    CGFloat contentWidth = CGRectGetWidth(cell.contentView.bounds);
+    CGFloat rightEdge = contentWidth - 32.0;
+    NSArray<UIView *> *nativeRightViews = @[ cell.arrowImageView ?: (UIView *)NSNull.null, cell.detailLabel ?: (UIView *)NSNull.null ];
+    for (id candidate in nativeRightViews) {
+        if (![candidate isKindOfClass:UIView.class] || ![(UIView *)candidate superview])
+            continue;
+        CGRect candidateFrame = [(UIView *)candidate convertRect:[(UIView *)candidate bounds] toView:cell.contentView];
+        CGFloat candidateRight = CGRectGetMaxX(candidateFrame);
+        if (candidateRight > contentWidth * 0.55 && candidateRight <= contentWidth + 1.0) {
+            rightEdge = candidateRight;
+            break;
+        }
+    }
+
+    CGRect titleFrame = cell.titleLabel.superview ? [cell.titleLabel convertRect:cell.titleLabel.bounds toView:cell.contentView] : CGRectZero;
+    CGFloat availableWidth = rightEdge - CGRectGetMaxX(titleFrame) - 12.0;
+    CGFloat desiredWidth = DYYYInlineTextInputPreferredWidth(identifier, contentWidth);
+    CGFloat fieldWidth = MIN(desiredWidth, MAX(availableWidth, 84.0));
+    fieldWidth = MIN(fieldWidth, MAX(rightEdge - 12.0, 72.0));
+    textField.frame = CGRectMake(rightEdge - fieldWidth, MAX((CGRectGetHeight(cell.contentView.bounds) - 32.0) * 0.5, 4.0), fieldWidth, 32.0);
+    cell.accessoryType = UITableViewCellAccessoryNone;
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+}
+
+static BOOL DYYYCellUsesInlineControl(AWESettingsTableViewCell *cell) {
+    UIView *options = objc_getAssociatedObject(cell, &kDYYYInlineOptionsSegmentedControlKey);
+    UIView *textField = objc_getAssociatedObject(cell, &kDYYYInlineTextFieldKey);
+    return options.superview != nil || textField != nil;
+}
+
+static void DYYYSetInlineCellChrome(AWESettingsTableViewCell *cell) {
+    BOOL usesInlineControl = DYYYCellUsesInlineControl(cell);
+    NSString *identifier = cell.itemModel.identifier ?: @"";
+    UIImageView *arrow = cell.arrowImageView;
+    NSString *hiddenArrowIdentifier = objc_getAssociatedObject(arrow, &kDYYYArrowHiddenIdentifierKey);
+    if (arrow && hiddenArrowIdentifier.length > 0 && ![hiddenArrowIdentifier isEqualToString:identifier]) {
+        objc_setAssociatedObject(arrow, &kDYYYArrowHiddenIdentifierKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        objc_setAssociatedObject(arrow, &kDYYYArrowOriginalHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        objc_setAssociatedObject(arrow, &kDYYYArrowOriginalAlphaKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        hiddenArrowIdentifier = nil;
+    }
+    if (usesInlineControl && arrow) {
+        if (![hiddenArrowIdentifier isEqualToString:identifier]) {
+            objc_setAssociatedObject(arrow, &kDYYYArrowOriginalHiddenKey, @(arrow.hidden), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(arrow, &kDYYYArrowOriginalAlphaKey, @(arrow.alpha), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(arrow, &kDYYYArrowHiddenIdentifierKey, identifier, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        }
+        arrow.hidden = YES;
+        arrow.alpha = 0.0;
+    } else if (arrow && hiddenArrowIdentifier.length > 0) {
+        NSNumber *originalHidden = objc_getAssociatedObject(arrow, &kDYYYArrowOriginalHiddenKey);
+        NSNumber *originalAlpha = objc_getAssociatedObject(arrow, &kDYYYArrowOriginalAlphaKey);
+        arrow.hidden = originalHidden ? originalHidden.boolValue : arrow.hidden;
+        arrow.alpha = originalAlpha ? originalAlpha.doubleValue : arrow.alpha;
+        objc_setAssociatedObject(arrow, &kDYYYArrowHiddenIdentifierKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        objc_setAssociatedObject(arrow, &kDYYYArrowOriginalHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        objc_setAssociatedObject(arrow, &kDYYYArrowOriginalAlphaKey, nil, OBJC_ASSOCIATION_ASSIGN);
+    }
+
+    UILabel *detailLabel = cell.detailLabel;
+    NSString *hiddenDetailIdentifier = objc_getAssociatedObject(detailLabel, &kDYYYDetailHiddenIdentifierKey);
+    if (detailLabel && hiddenDetailIdentifier.length > 0 && ![hiddenDetailIdentifier isEqualToString:identifier]) {
+        objc_setAssociatedObject(detailLabel, &kDYYYDetailHiddenIdentifierKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        objc_setAssociatedObject(detailLabel, &kDYYYDetailOriginalHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        hiddenDetailIdentifier = nil;
+    }
+    if (usesInlineControl && detailLabel) {
+        if (![hiddenDetailIdentifier isEqualToString:identifier]) {
+            objc_setAssociatedObject(detailLabel, &kDYYYDetailOriginalHiddenKey, @(detailLabel.hidden), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(detailLabel, &kDYYYDetailHiddenIdentifierKey, identifier, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        }
+        detailLabel.hidden = YES;
+    } else if (detailLabel && hiddenDetailIdentifier.length > 0) {
+        NSNumber *originalHidden = objc_getAssociatedObject(detailLabel, &kDYYYDetailOriginalHiddenKey);
+        detailLabel.hidden = originalHidden ? originalHidden.boolValue : detailLabel.hidden;
+        objc_setAssociatedObject(detailLabel, &kDYYYDetailHiddenIdentifierKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        objc_setAssociatedObject(detailLabel, &kDYYYDetailOriginalHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+    }
+
+    if (usesInlineControl) {
+        cell.accessoryType = UITableViewCellAccessoryNone;
+        cell.accessoryView = nil;
+    }
+
+    NSInteger cellType = cell.itemModel.cellType;
+    if (cellType == 6 || cellType == 37) {
+        arrow.hidden = YES;
+        arrow.alpha = 0.0;
+        cell.accessoryType = UITableViewCellAccessoryNone;
+    } else if (!usesInlineControl && (cellType == 20 || cellType == 26) && cell.itemModel.cellTappedBlock != nil) {
+        arrow.hidden = NO;
+        arrow.alpha = 1.0;
+    }
+}
+
+static NSString *DYYYWrappedSubtitleForWidth(NSString *source, UIFont *font, CGFloat maxWidth) {
+    if (source.length == 0 || maxWidth <= 0.0) {
+        return source ?: @"";
+    }
+
+    UIFont *measurementFont = font ?: [UIFont systemFontOfSize:13.0];
+    NSString *normalized = [source stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
+    NSMutableString *result = [NSMutableString string];
+    NSMutableString *line = [NSMutableString string];
+    NSDictionary *attributes = @{NSFontAttributeName : measurementFont};
+
+    [normalized enumerateSubstringsInRange:NSMakeRange(0, normalized.length)
+                                   options:NSStringEnumerationByComposedCharacterSequences
+                                usingBlock:^(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop) {
+                                  NSString *candidate = [line stringByAppendingString:substring];
+                                  CGFloat candidateWidth = ceil([candidate sizeWithAttributes:attributes].width);
+                                  if (line.length > 0 && candidateWidth > maxWidth) {
+                                      while ([line hasSuffix:@" "]) {
+                                          [line deleteCharactersInRange:NSMakeRange(line.length - 1, 1)];
+                                      }
+                                      if (result.length > 0) {
+                                          [result appendString:@"\n"];
+                                      }
+                                      [result appendString:line];
+                                      [line setString:[substring isEqualToString:@" "] ? @"" : substring];
+                                  } else {
+                                      [line appendString:substring];
+                                  }
+                                }];
+
+    if (line.length > 0) {
+        if (result.length > 0) {
+            [result appendString:@"\n"];
+        }
+        [result appendString:line];
+    }
+    return result.length > 0 ? result : normalized;
+}
+
+static void DYYYSetWrappedSubtitle(UILabel *label, NSString *source, CGFloat maxWidth) {
+    NSString *wrapped = DYYYWrappedSubtitleForWidth(source, label.font, maxWidth);
+    if ([label.text isEqualToString:wrapped]) {
+        return;
+    }
+
+    if (label.attributedText.length > 0) {
+        NSDictionary *attributes = [label.attributedText attributesAtIndex:0 effectiveRange:NULL];
+        label.attributedText = [[NSAttributedString alloc] initWithString:wrapped attributes:attributes];
+    } else {
+        label.text = wrapped;
+    }
+    label.numberOfLines = 0;
+    label.lineBreakMode = NSLineBreakByWordWrapping;
+}
+
+static void DYYYApplySubtitleSafeSpacing(AWESettingsTableViewCell *cell) {
+    NSMutableArray<UIView *> *rightViews = [NSMutableArray array];
+    if (cell.aSwitch) [rightViews addObject:cell.aSwitch];
+    if (cell.rightButton) [rightViews addObject:cell.rightButton];
+    if (cell.detailButton) [rightViews addObject:cell.detailButton];
+    UIView *optionsControl = objc_getAssociatedObject(cell, &kDYYYInlineOptionsSegmentedControlKey);
+    UIView *inlineTextField = objc_getAssociatedObject(cell, &kDYYYInlineTextFieldKey);
+    if (optionsControl) [rightViews addObject:optionsControl];
+    if (inlineTextField) [rightViews addObject:inlineTextField];
+    NSMutableArray<UILabel *> *subtitleLabels = [NSMutableArray array];
+    if (cell.subTitleLabel) [subtitleLabels addObject:cell.subTitleLabel];
+    if (cell.fancySubtitleLabel) [subtitleLabels addObject:cell.fancySubtitleLabel];
+    for (UILabel *label in subtitleLabels) {
+        if (!label.superview || label.hidden || CGRectIsEmpty(label.frame)) {
+            continue;
+        }
+        UIView *labelContainer = label.superview;
+        CGFloat contentRight = CGRectGetMaxX([cell.contentView convertRect:cell.contentView.bounds toView:labelContainer]);
+        CGFloat rightBoundary = contentRight - 12.0;
+        for (UIView *view in rightViews) {
+            if (!view.hidden && view.alpha > 0.01) {
+                CGRect controlFrame;
+                if (view.superview) {
+                    controlFrame = [view convertRect:view.bounds toView:labelContainer];
+                    if (view == inlineTextField &&
+                        (CGRectGetMinX(controlFrame) <= CGRectGetMinX(label.frame) || CGRectGetMaxX(controlFrame) > contentRight + 1.0)) {
+                        controlFrame.origin.x = contentRight - CGRectGetWidth(view.bounds) - 12.0;
+                    }
+                } else if (view == inlineTextField) {
+                    controlFrame = CGRectMake(contentRight - CGRectGetWidth(view.bounds) - 12.0, 0.0, CGRectGetWidth(view.bounds), CGRectGetHeight(view.bounds));
+                } else {
+                    continue;
+                }
+                rightBoundary = MIN(rightBoundary, CGRectGetMinX(controlFrame) - 16.0);
+            }
+        }
+        CGRect frame = label.frame;
+        CGFloat maxWidth = MAX(rightBoundary - CGRectGetMinX(frame), 44.0);
+        BOOL needsMeasuredWrapping = inlineTextField && inlineTextField.superview;
+        if (needsMeasuredWrapping && cell.itemModel.subTitle.length > 0) {
+            AWESettingItemModel *itemModel = cell.itemModel;
+            NSString *originalSubtitle = objc_getAssociatedObject(itemModel, &kDYYYOriginalInlineSubtitleKey);
+            if (originalSubtitle.length == 0) {
+                originalSubtitle = itemModel.subTitle;
+                objc_setAssociatedObject(itemModel, &kDYYYOriginalInlineSubtitleKey, originalSubtitle, OBJC_ASSOCIATION_COPY_NONATOMIC);
+            }
+            NSString *wrappedSubtitle = DYYYWrappedSubtitleForWidth(originalSubtitle, label.font, maxWidth);
+            DYYYSetWrappedSubtitle(label, originalSubtitle, maxWidth);
+            if (![itemModel.subTitle isEqualToString:wrappedSubtitle]) {
+                itemModel.subTitle = wrappedSubtitle;
+                if (![objc_getAssociatedObject(itemModel, &kDYYYInlineSubtitleRefreshPendingKey) boolValue]) {
+                    objc_setAssociatedObject(itemModel, &kDYYYInlineSubtitleRefreshPendingKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                    __weak AWESettingItemModel *weakItemModel = itemModel;
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                      AWESettingItemModel *strongItemModel = weakItemModel;
+                      if (strongItemModel) {
+                          objc_setAssociatedObject(strongItemModel, &kDYYYInlineSubtitleRefreshPendingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                          [strongItemModel refreshCell];
+                      }
+                    });
+                }
+            }
+            continue;
+        }
+        frame.size.width = maxWidth;
+        label.frame = frame;
+        label.preferredMaxLayoutWidth = maxWidth;
+        label.numberOfLines = 0;
+        label.lineBreakMode = NSLineBreakByWordWrapping;
+    }
+}
+
+static void DYYYApplyInlineControlsToCell(AWESettingsTableViewCell *cell) {
+    cell.detailLabel.transform = CGAffineTransformIdentity;
+    DYYYApplyInlineOptionsToCell(cell);
+    DYYYApplyInlineTextFieldToCell(cell);
+    DYYYSetInlineCellChrome(cell);
+    DYYYApplySubtitleSafeSpacing(cell);
+    DYYYCenterSettingIconForSubtitle(cell);
+}
+
+static void DYYYApplySettingCellChrome(AWESettingsTableViewCell *cell) {
+    if (!cell || gDYYYApplyingSettingCellChrome) {
+        return;
+    }
+    gDYYYApplyingSettingCellChrome = YES;
+    DYYYApplyGeneratedSettingIconToCell(cell);
+    DYYYApplyInlineControlsToCell(cell);
+    gDYYYApplyingSettingCellChrome = NO;
+}
+
 static void DYYYRemoveRemoteConfigObserver(void) {
     if (dyyyRemoteConfigChangedToken) {
         [[NSNotificationCenter defaultCenter] removeObserver:dyyyRemoteConfigChangedToken];
         dyyyRemoteConfigChangedToken = nil;
     }
 }
+
+static NSString *DYYYStringOrEmpty(id value) {
+    return [value isKindOfClass:[NSString class]] ? (NSString *)value : @"";
+}
+
+static NSString *DYYYShellQuotedString(NSString *string) {
+    NSString *safeString = [string ?: @"" stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"];
+    return [NSString stringWithFormat:@"'%@'", safeString];
+}
+
+static NSString *DYYYPreferredLaunchURLString(void) {
+    NSArray *urlTypes = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleURLTypes"];
+    NSMutableArray<NSString *> *schemes = [NSMutableArray array];
+    for (NSDictionary *urlType in urlTypes) {
+        if (![urlType isKindOfClass:[NSDictionary class]]) {
+            continue;
+        }
+        NSArray *urlSchemes = urlType[@"CFBundleURLSchemes"];
+        for (NSString *scheme in urlSchemes) {
+            if ([scheme isKindOfClass:[NSString class]] && scheme.length > 0) {
+                [schemes addObject:scheme];
+            }
+        }
+    }
+
+    for (NSString *preferredScheme in @[ @"snssdk1128", @"aweme" ]) {
+        for (NSString *scheme in schemes) {
+            if ([scheme caseInsensitiveCompare:preferredScheme] == NSOrderedSame) {
+                return [NSString stringWithFormat:@"%@://", scheme];
+            }
+        }
+    }
+
+    for (NSString *scheme in schemes) {
+        NSString *lowercaseScheme = scheme.lowercaseString;
+        if ([lowercaseScheme hasPrefix:@"snssdk"] &&
+            [lowercaseScheme rangeOfString:@"sync"].location == NSNotFound &&
+            [lowercaseScheme rangeOfString:@"lucky"].location == NSNotFound &&
+            [lowercaseScheme rangeOfString:@"share"].location == NSNotFound &&
+            [lowercaseScheme rangeOfString:@"pay"].location == NSNotFound) {
+            return [NSString stringWithFormat:@"%@://", scheme];
+        }
+    }
+
+    return nil;
+}
+
+static NSArray<NSString *> *DYYYApplicationRelaunchTargets(void) {
+    NSMutableArray<NSString *> *targets = [NSMutableArray array];
+    NSString *launchURLString = DYYYPreferredLaunchURLString();
+    if (launchURLString.length > 0) {
+        [targets addObject:launchURLString];
+    }
+
+    NSString *bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
+    if (bundleIdentifier.length > 0 && ![targets containsObject:bundleIdentifier]) {
+        [targets addObject:bundleIdentifier];
+    }
+
+    return targets;
+}
+
+static BOOL DYYYSpawnApplicationRelaunchTaskAfterDelay(NSTimeInterval delay) {
+    NSArray<NSString *> *targets = DYYYApplicationRelaunchTargets();
+    if (targets.count == 0) {
+        return NO;
+    }
+
+    NSMutableArray<NSString *> *quotedTargets = [NSMutableArray arrayWithCapacity:targets.count];
+    for (NSString *target in targets) {
+        [quotedTargets addObject:DYYYShellQuotedString(target)];
+    }
+    NSString *targetList = [quotedTargets componentsJoinedByString:@" "];
+    NSString *command = [NSString stringWithFormat:@"log='/tmp/dyyy-relaunch.log'; : > \"$log\"; export PATH=/var/jb/usr/bin:/var/jb/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}; uid=%u; echo \"start $(date)\" >> \"$log\"; sleep %.2f; open_target() { target=\"$1\"; echo \"open $target\" >> \"$log\"; for tool in /var/jb/usr/bin/uiopen /usr/bin/uiopen; do if [ -x \"$tool\" ]; then /bin/launchctl asuser \"$uid\" \"$tool\" \"$target\" >> \"$log\" 2>&1 && exit 0; \"$tool\" \"$target\" >> \"$log\" 2>&1 && exit 0; fi; done; if command -v uiopen >/dev/null 2>&1; then uiopen \"$target\" >> \"$log\" 2>&1 && exit 0; fi; }; for target in %@; do open_target \"$target\"; done; echo 'failed' >> \"$log\"; exit 1",
+                         (unsigned)getuid(), MAX(delay, 0.0), targetList];
+
+    NSArray<NSString *> *shellCandidates = @[ @"/var/jb/bin/sh", @"/var/jb/usr/bin/sh", @"/bin/sh", @"/usr/bin/sh" ];
+    for (NSString *shellPath in shellCandidates) {
+        pid_t pid = 0;
+        posix_spawnattr_t attributes;
+        posix_spawnattr_init(&attributes);
+        posix_spawn_file_actions_t fileActions;
+        posix_spawn_file_actions_init(&fileActions);
+        posix_spawn_file_actions_addopen(&fileActions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+        posix_spawn_file_actions_addopen(&fileActions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
+        posix_spawn_file_actions_addopen(&fileActions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
+#ifdef POSIX_SPAWN_SETSID
+        posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSID);
+#else
+        posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
+        posix_spawnattr_setpgroup(&attributes, 0);
+#endif
+        char *const argv[] = { (char *)shellPath.fileSystemRepresentation, (char *)"-c", (char *)command.UTF8String, NULL };
+        int spawnResult = posix_spawn(&pid, shellPath.fileSystemRepresentation, &fileActions, &attributes, argv, environ);
+        posix_spawn_file_actions_destroy(&fileActions);
+        posix_spawnattr_destroy(&attributes);
+        if (spawnResult == 0) {
+            return YES;
+        }
+    }
+
+    return NO;
+}
+
+static void DYYYRestartApplicationAfterDelay(NSTimeInterval delay) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(MAX(delay, 0.0) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      if (!DYYYSpawnApplicationRelaunchTaskAfterDelay(1.15)) {
+          return;
+      }
+
+      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        UIApplication *application = [UIApplication sharedApplication];
+        SEL suspendSelector = NSSelectorFromString(@"suspend");
+        if ([application respondsToSelector:suspendSelector]) {
+            ((void (*)(id, SEL))objc_msgSend)(application, suspendSelector);
+        }
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+          exit(0);
+        });
+      });
+    });
+}
+
+static NSMutableDictionary<NSString *, NSMutableDictionary *> *DYYYSettingsSearchIndexMap(void) {
+    static NSMutableDictionary<NSString *, NSMutableDictionary *> *map = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+      map = [NSMutableDictionary dictionary];
+    });
+    return map;
+}
+
+static NSMutableArray<NSString *> *DYYYSettingsSearchIndexKeys(void) {
+    static NSMutableArray<NSString *> *keys = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+      keys = [NSMutableArray array];
+    });
+    return keys;
+}
+
+static NSArray<NSDictionary *> *DYYYSettingsSearchEntriesForSections(NSString *categoryTitle, NSArray *sections) {
+    if (categoryTitle.length == 0 || sections.count == 0) {
+        return @[];
+    }
+
+    NSMutableArray<NSDictionary *> *entries = [NSMutableArray array];
+
+    for (AWESettingSectionModel *section in sections) {
+        if (![section respondsToSelector:@selector(itemArray)]) {
+            continue;
+        }
+
+        NSString *sectionTitle = DYYYStringOrEmpty(section.sectionHeaderTitle);
+        NSString *path = sectionTitle.length > 0 ? [NSString stringWithFormat:@"%@ - %@", categoryTitle, sectionTitle] : categoryTitle;
+
+        for (id itemObject in section.itemArray) {
+            if (![itemObject isKindOfClass:NSClassFromString(@"AWESettingItemModel")]) {
+                continue;
+            }
+
+            AWESettingItemModel *item = (AWESettingItemModel *)itemObject;
+            if (item.title.length == 0) {
+                continue;
+            }
+
+            NSString *identifier = item.identifier.length > 0 ? item.identifier : item.title;
+            NSString *entryKey = [NSString stringWithFormat:@"%@|%@|%@", path, identifier, item.title];
+            NSString *searchableText = [NSString stringWithFormat:@"%@ %@", item.title ?: @"", item.subTitle ?: @""];
+            [entries addObject:@{@"entryKey" : entryKey, @"path" : path, @"item" : item, @"searchableText" : searchableText}];
+        }
+    }
+
+    return entries;
+}
+
+static void DYYYRegisterSearchSections(NSString *categoryTitle, NSArray *sections) {
+    NSMutableDictionary *indexMap = DYYYSettingsSearchIndexMap();
+    NSMutableArray *orderedKeys = DYYYSettingsSearchIndexKeys();
+
+    for (NSDictionary *entry in DYYYSettingsSearchEntriesForSections(categoryTitle, sections)) {
+        NSString *entryKey = entry[@"entryKey"];
+        if (!indexMap[entryKey]) {
+            [orderedKeys addObject:entryKey];
+        }
+        NSMutableDictionary *storedEntry = [entry mutableCopy];
+        [storedEntry removeObjectForKey:@"entryKey"];
+        indexMap[entryKey] = storedEntry;
+    }
+}
+
+static NSArray<NSDictionary *> *DYYYSettingsSearchEntries(void) {
+    NSMutableArray<NSDictionary *> *entries = [NSMutableArray array];
+    NSDictionary *indexMap = DYYYSettingsSearchIndexMap();
+    for (NSString *key in DYYYSettingsSearchIndexKeys()) {
+        NSDictionary *entry = indexMap[key];
+        if (entry) {
+            [entries addObject:entry];
+        }
+    }
+    return entries;
+}
+
+static void DYYYResetSettingsSearchIndex(void) {
+    [DYYYSettingsSearchIndexMap() removeAllObjects];
+    [DYYYSettingsSearchIndexKeys() removeAllObjects];
+    DYYYSettingsSearchIndexBuilt = NO;
+}
+
+static void DYYYRefreshSearchItemValue(AWESettingItemModel *item) {
+    if (item.identifier.length == 0) {
+        return;
+    }
+
+    id savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:item.identifier];
+    if (item.cellType == 6 || item.cellType == 37) {
+        item.isSwitchOn = [savedValue respondsToSelector:@selector(boolValue)] ? [savedValue boolValue] : NO;
+    } else if (savedValue) {
+        if ([savedValue isKindOfClass:[NSString class]]) {
+            item.detail = savedValue;
+        } else if ([savedValue respondsToSelector:@selector(stringValue)]) {
+            item.detail = [savedValue stringValue];
+        }
+    }
+
+    [DYYYSettingsHelper applyDependencyRulesForItem:item];
+}
+
+static BOOL DYYYSettingsUsesDouyinLightBackground(void) {
+    return [DYYYUtils usesDouyinLightBackground];
+}
+
+static UIColor *DYYYSettingsColorFromARGB(NSUInteger argb) {
+    CGFloat alpha = ((argb >> 24) & 0xFF) / 255.0;
+    CGFloat red = ((argb >> 16) & 0xFF) / 255.0;
+    CGFloat green = ((argb >> 8) & 0xFF) / 255.0;
+    CGFloat blue = (argb & 0xFF) / 255.0;
+    return [UIColor colorWithRed:red green:green blue:blue alpha:alpha];
+}
+
+static UIColor *DYYYSettingsSearchContainerColor(BOOL usesLightBackground) {
+    // 将抖音 BGCard2 合成到 BGDoubleRow 后再赋值，保持搜索框原有 alpha=1。
+    (void)usesLightBackground;
+    return [DYYYUtils douyinOpaqueSettingsCardBackgroundColor];
+}
+
+static UIColor *DYYYSettingsSearchTextColor(BOOL usesLightBackground) {
+    // AWEUIColor TextPrimary: d=E6FFFFFF, dl=FF161823.
+    return DYYYSettingsColorFromARGB(usesLightBackground ? 0xFF161823 : 0xE6FFFFFF);
+}
+
+static UIColor *DYYYSettingsSearchPlaceholderColor(BOOL usesLightBackground) {
+    // AWEUIColor TextSecondary: d=C0FFFFFF, dl=C0161823.
+    return DYYYSettingsColorFromARGB(usesLightBackground ? 0xC0161823 : 0xC0FFFFFF);
+}
+
+@interface DYYYSettingsSearchCoordinator : NSObject <UITextFieldDelegate, UIGestureRecognizerDelegate>
+@property(nonatomic, weak) AWESettingBaseViewController *settingsVC;
+@property(nonatomic, weak) UINavigationController *navigationController;
+@property(nonatomic, assign) BOOL previousInteractivePopGestureEnabled;
+@property(nonatomic, assign) BOOL hasStoredInteractivePopGestureEnabled;
+@property(nonatomic, strong) AWESettingsViewModel *viewModel;
+@property(nonatomic, copy) NSArray *originalSections;
+@property(nonatomic, copy) NSArray<NSDictionary *> *searchEntries;
+@property(nonatomic, strong) UIView *headerView;
+@property(nonatomic, strong) UIView *containerView;
+@property(nonatomic, strong) UITextField *searchTextField;
+@property(nonatomic, strong) UIScreenEdgePanGestureRecognizer *searchBackGestureRecognizer;
+@property(nonatomic, strong) UIView *centerPlaceholderView;
+@property(nonatomic, strong) UIImageView *leftIconView;
+@property(nonatomic, strong) UIImageView *centerIconView;
+@property(nonatomic, strong) UILabel *centerPlaceholderLabel;
+@property(nonatomic, assign) UIEdgeInsets tableContentInsetBeforeSearchHeader;
+@property(nonatomic, assign) UIEdgeInsets tableScrollIndicatorInsetsBeforeSearchHeader;
+@property(nonatomic, assign) BOOL hasInstalledPinnedHeaderInsets;
+- (instancetype)initWithSettingsVC:(AWESettingBaseViewController *)settingsVC viewModel:(AWESettingsViewModel *)viewModel originalSections:(NSArray *)sections searchEntries:(NSArray<NSDictionary *> *)entries;
+- (void)installSearchHeader;
+- (void)installPinnedHeaderInsetsForTableView:(UITableView *)tableView;
+- (void)restorePinnedHeaderInsets;
+- (void)installNavigationInterceptors;
+- (void)applyThemeColors;
+- (void)updateLayout;
+- (void)updateSearchPlaceholderVisibilityAnimated:(BOOL)animated;
+- (BOOL)isTopSettingsViewController;
+- (void)updateNavigationGestureState;
+- (void)restoreNavigationGestureState;
+- (BOOL)handleBackNavigationRequest;
+@end
+
+@implementation DYYYSettingsSearchCoordinator
+
+- (instancetype)initWithSettingsVC:(AWESettingBaseViewController *)settingsVC viewModel:(AWESettingsViewModel *)viewModel originalSections:(NSArray *)sections searchEntries:(NSArray<NSDictionary *> *)entries {
+    self = [super init];
+    if (self) {
+        _settingsVC = settingsVC;
+        _viewModel = viewModel;
+        _originalSections = [sections copy];
+        _searchEntries = [entries copy];
+    }
+    return self;
+}
+
+- (void)installSearchHeader {
+    [self.settingsVC view];
+    UITableView *tableView = self.settingsVC.tableView;
+    if (!tableView) {
+        return;
+    }
+
+    // 直接进入子页时 tableView 可能尚未完成首次布局，宽度仍为 0。
+    // 禁止用 width - 32 创建负宽度视图，否则 UIKit 会留下非零 bounds.origin。
+    CGFloat initialWidth = MAX(CGRectGetWidth(tableView.bounds), CGRectGetWidth(self.settingsVC.view.bounds));
+    initialWidth = MAX(0.0, initialWidth);
+    CGFloat initialContainerWidth = MAX(0.0, initialWidth - 32.0);
+
+    self.headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, initialWidth, 44)];
+    self.headerView.backgroundColor = [UIColor clearColor];
+    self.headerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+
+    self.containerView = [[UIView alloc] initWithFrame:CGRectMake(16, 0, initialContainerWidth, 44)];
+    self.containerView.layer.cornerRadius = 12;
+    self.containerView.layer.masksToBounds = NO;
+    self.containerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [self.headerView addSubview:self.containerView];
+
+    self.searchTextField = [[UITextField alloc] initWithFrame:self.containerView.bounds];
+    self.searchTextField.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.searchTextField.backgroundColor = [UIColor clearColor];
+    self.searchTextField.font = [UIFont systemFontOfSize:16 weight:UIFontWeightRegular];
+    self.searchTextField.clearButtonMode = UITextFieldViewModeWhileEditing;
+    self.searchTextField.returnKeyType = UIReturnKeySearch;
+    self.searchTextField.autocorrectionType = UITextAutocorrectionTypeNo;
+    self.searchTextField.spellCheckingType = UITextSpellCheckingTypeNo;
+    self.searchTextField.delegate = self;
+    self.searchTextField.accessibilityLabel = @"DYYY设置搜索";
+
+    UIView *leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 38, 30)];
+    self.leftIconView = [[UIImageView alloc] initWithFrame:CGRectMake(14, 5, 18, 18)];
+    self.leftIconView.image = [UIImage systemImageNamed:@"magnifyingglass"];
+    self.leftIconView.contentMode = UIViewContentModeScaleAspectFit;
+    [leftView addSubview:self.leftIconView];
+    self.searchTextField.leftView = leftView;
+    self.searchTextField.leftViewMode = UITextFieldViewModeNever;
+    [self.searchTextField addTarget:self action:@selector(searchTextDidChange:) forControlEvents:UIControlEventEditingChanged];
+    [self.containerView addSubview:self.searchTextField];
+
+    self.centerPlaceholderView = [[UIView alloc] initWithFrame:CGRectZero];
+    self.centerPlaceholderView.userInteractionEnabled = NO;
+    [self.containerView addSubview:self.centerPlaceholderView];
+
+    self.centerIconView = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"magnifyingglass"]];
+    self.centerIconView.contentMode = UIViewContentModeScaleAspectFit;
+    [self.centerPlaceholderView addSubview:self.centerIconView];
+
+    self.centerPlaceholderLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.centerPlaceholderLabel.text = @"搜索设置项";
+    self.centerPlaceholderLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightRegular];
+    [self.centerPlaceholderView addSubview:self.centerPlaceholderLabel];
+
+    [self.settingsVC.view addSubview:self.headerView];
+    [self installPinnedHeaderInsetsForTableView:tableView];
+    [self applyThemeColors];
+    [self updateLayout];
+    [self installNavigationInterceptors];
+    [self updateNavigationGestureState];
+}
+
+- (void)installPinnedHeaderInsetsForTableView:(UITableView *)tableView {
+    if (!tableView || self.hasInstalledPinnedHeaderInsets) {
+        return;
+    }
+
+    self.tableContentInsetBeforeSearchHeader = tableView.contentInset;
+    self.tableScrollIndicatorInsetsBeforeSearchHeader = tableView.scrollIndicatorInsets;
+    BOOL shouldKeepAtTop = !tableView.window || tableView.contentOffset.y <= -tableView.adjustedContentInset.top + 1.0;
+
+    UIEdgeInsets contentInset = tableView.contentInset;
+    contentInset.top += CGRectGetHeight(self.headerView.bounds);
+    tableView.contentInset = contentInset;
+
+    UIEdgeInsets indicatorInsets = tableView.scrollIndicatorInsets;
+    indicatorInsets.top += CGRectGetHeight(self.headerView.bounds);
+    tableView.scrollIndicatorInsets = indicatorInsets;
+    self.hasInstalledPinnedHeaderInsets = YES;
+
+    if (shouldKeepAtTop) {
+        [tableView setContentOffset:CGPointMake(tableView.contentOffset.x, -tableView.adjustedContentInset.top) animated:NO];
+    }
+}
+
+- (void)restorePinnedHeaderInsets {
+    UITableView *tableView = self.settingsVC.tableView;
+    if (!tableView || !self.hasInstalledPinnedHeaderInsets) {
+        return;
+    }
+
+    UIEdgeInsets contentInset = tableView.contentInset;
+    contentInset.top = self.tableContentInsetBeforeSearchHeader.top;
+    tableView.contentInset = contentInset;
+
+    UIEdgeInsets indicatorInsets = tableView.scrollIndicatorInsets;
+    indicatorInsets.top = self.tableScrollIndicatorInsetsBeforeSearchHeader.top;
+    tableView.scrollIndicatorInsets = indicatorInsets;
+    self.hasInstalledPinnedHeaderInsets = NO;
+}
+
+- (void)updateLayout {
+    UITableView *tableView = self.settingsVC.tableView;
+    if (!tableView || !self.headerView || !self.containerView || !self.centerPlaceholderView || !self.leftIconView || !self.centerIconView || !self.centerPlaceholderLabel) {
+        return;
+    }
+
+    [self applyThemeColors];
+
+    CGFloat width = tableView.bounds.size.width;
+    if (width <= 0) {
+        return;
+    }
+
+    UIView *settingsView = self.settingsVC.view;
+    UIView *tableSuperview = tableView.superview;
+    if (!settingsView || !tableSuperview) {
+        return;
+    }
+
+    CGRect tableFrame = [tableSuperview convertRect:tableView.frame toView:settingsView];
+    CGFloat automaticTopInset = MAX(0.0, tableView.adjustedContentInset.top - tableView.contentInset.top);
+    CGFloat containerWidth = MAX(0.0, width - 32.0);
+    self.headerView.frame = CGRectMake(CGRectGetMinX(tableFrame), CGRectGetMinY(tableFrame) + automaticTopInset, width, 44);
+    self.containerView.frame = CGRectMake(16, 0, containerWidth, 44);
+    // containerView 是非滚动的自有承载视图，bounds 原点必须始终为零。
+    self.containerView.bounds = CGRectMake(0, 0, containerWidth, 44);
+    self.containerView.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:self.containerView.bounds cornerRadius:self.containerView.layer.cornerRadius].CGPath;
+    self.searchTextField.frame = self.containerView.bounds;
+    self.headerView.backgroundColor = UIColor.clearColor;
+
+    [self updateSearchPlaceholderVisibilityAnimated:NO];
+    [settingsView bringSubviewToFront:self.headerView];
+
+    [self installNavigationInterceptors];
+    [self updateNavigationGestureState];
+}
+
+- (CGRect)placeholderFrameForLeftAlignment:(BOOL)leftAligned {
+    CGFloat iconSize = 18.0;
+    CGFloat spacing = 8.0;
+    CGSize labelSize = [self.centerPlaceholderLabel.text sizeWithAttributes:@{NSFontAttributeName : self.centerPlaceholderLabel.font}];
+    CGFloat placeholderWidth = iconSize + spacing + ceil(labelSize.width);
+    CGFloat placeholderHeight = MAX(iconSize, ceil(labelSize.height));
+    self.centerIconView.frame = CGRectMake(0, (placeholderHeight - iconSize) / 2.0, iconSize, iconSize);
+    self.centerPlaceholderLabel.frame = CGRectMake(iconSize + spacing, 0, ceil(labelSize.width), placeholderHeight);
+
+    CGFloat containerWidth = CGRectGetWidth(self.containerView.bounds);
+    CGFloat containerHeight = CGRectGetHeight(self.containerView.bounds);
+    CGFloat targetX = leftAligned ? 14.0 : (containerWidth - placeholderWidth) / 2.0;
+    targetX = MAX(0.0, MIN(targetX, containerWidth - placeholderWidth));
+    return CGRectMake(targetX, (containerHeight - placeholderHeight) / 2.0, placeholderWidth, placeholderHeight);
+}
+
+- (void)updateSearchPlaceholderVisibility {
+    [self updateSearchPlaceholderVisibilityAnimated:NO];
+}
+
+- (NSString *)trimmedSearchText {
+    return [self.searchTextField.text ?: @"" stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+}
+
+- (void)updateSearchPlaceholderVisibilityAnimated:(BOOL)animated {
+    BOOL hasSearchText = self.searchTextField.text.length > 0;
+    BOOL showPlaceholderView = !hasSearchText;
+    BOOL leftAligned = self.searchTextField.isEditing;
+    CGRect targetFrame = [self placeholderFrameForLeftAlignment:leftAligned];
+    CGFloat targetPlaceholderAlpha = showPlaceholderView ? 1.0 : 0.0;
+
+    self.searchTextField.placeholder = nil;
+    self.searchTextField.attributedPlaceholder = nil;
+    self.searchTextField.leftViewMode = (self.searchTextField.isEditing || hasSearchText) ? UITextFieldViewModeAlways : UITextFieldViewModeNever;
+    if (showPlaceholderView) {
+        self.centerPlaceholderView.hidden = NO;
+        self.leftIconView.alpha = 0.0;
+    }
+
+    void (^animations)(void) = ^{
+      self.centerPlaceholderView.frame = targetFrame;
+      self.centerPlaceholderView.alpha = targetPlaceholderAlpha;
+      if (!showPlaceholderView) {
+          self.leftIconView.alpha = 1.0;
+      }
+    };
+
+    void (^completion)(BOOL) = ^(BOOL finished) {
+      if (!showPlaceholderView && finished) {
+          self.centerPlaceholderView.hidden = YES;
+      }
+    };
+
+    if (animated && self.centerPlaceholderView.superview) {
+        [UIView animateWithDuration:0.26
+                              delay:0
+             usingSpringWithDamping:0.88
+              initialSpringVelocity:0.0
+                            options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
+                         animations:animations
+                         completion:completion];
+    } else {
+        animations();
+        if (!showPlaceholderView) {
+            self.centerPlaceholderView.hidden = YES;
+        }
+    }
+}
+
+- (void)applyThemeColors {
+    BOOL usesLightBackground = DYYYSettingsUsesDouyinLightBackground();
+    UIColor *containerColor = DYYYSettingsSearchContainerColor(usesLightBackground);
+    UIColor *textColor = DYYYSettingsSearchTextColor(usesLightBackground);
+    UIColor *placeholderColor = DYYYSettingsSearchPlaceholderColor(usesLightBackground);
+
+    self.containerView.backgroundColor = containerColor;
+    self.containerView.layer.shadowColor = UIColor.blackColor.CGColor;
+    self.containerView.layer.shadowOpacity = usesLightBackground ? 0.08 : 0.16;
+    self.containerView.layer.shadowOffset = CGSizeMake(0, 3.0);
+    self.containerView.layer.shadowRadius = 3.5;
+    self.searchTextField.textColor = textColor;
+    self.searchTextField.tintColor = textColor;
+    self.searchTextField.keyboardAppearance = usesLightBackground ? UIKeyboardAppearanceDefault : UIKeyboardAppearanceDark;
+    self.leftIconView.tintColor = placeholderColor;
+    self.centerIconView.tintColor = placeholderColor;
+    self.centerPlaceholderLabel.textColor = placeholderColor;
+    [self updateSearchPlaceholderVisibility];
+}
+
+- (NSArray *)sectionsForSearchText:(NSString *)searchText {
+    NSString *query = [searchText lowercaseString];
+    if (query.length == 0) {
+        return self.originalSections;
+    }
+
+    NSMutableDictionary<NSString *, NSMutableArray *> *groupedItems = [NSMutableDictionary dictionary];
+    NSMutableArray<NSString *> *orderedPaths = [NSMutableArray array];
+    for (NSDictionary *entry in self.searchEntries) {
+        NSString *searchableText = [entry[@"searchableText"] lowercaseString];
+        if (![searchableText containsString:query]) {
+            continue;
+        }
+
+        AWESettingItemModel *item = entry[@"item"];
+        DYYYRefreshSearchItemValue(item);
+        NSString *path = entry[@"path"] ?: @"DYYY";
+        NSMutableArray *items = groupedItems[path];
+        if (!items) {
+            items = [NSMutableArray array];
+            groupedItems[path] = items;
+            [orderedPaths addObject:path];
+        }
+        [items addObject:item];
+    }
+
+    NSMutableArray *sections = [NSMutableArray array];
+    for (NSString *path in orderedPaths) {
+        NSArray *items = groupedItems[path];
+        if (items.count == 0) {
+            continue;
+        }
+
+        AWESettingSectionModel *section = [[NSClassFromString(@"AWESettingSectionModel") alloc] init];
+        section.sectionHeaderTitle = path;
+        section.sectionHeaderHeight = 40;
+        section.type = 0;
+        section.itemArray = items;
+        [sections addObject:section];
+    }
+
+    if (sections.count == 0) {
+        AWESettingSectionModel *emptySection = [[NSClassFromString(@"AWESettingSectionModel") alloc] init];
+        emptySection.sectionHeaderTitle = @"未找到相关设置";
+        emptySection.sectionHeaderHeight = 40;
+        emptySection.type = 0;
+        emptySection.itemArray = @[];
+        [sections addObject:emptySection];
+    }
+
+    return sections;
+}
+
+- (void)searchTextDidChange:(UITextField *)textField {
+    // 输入过程中不要反复叠加占位视图和列表的过渡动画，避免阻塞文字即时显示。
+    [self updateSearchPlaceholderVisibilityAnimated:NO];
+    self.viewModel.sectionDataArray = [self sectionsForSearchText:[self trimmedSearchText]];
+    [self.settingsVC.tableView reloadData];
+    [self updateNavigationGestureState];
+}
+
+- (BOOL)isSearchInteractionActive {
+    return self.searchTextField.isFirstResponder || [self trimmedSearchText].length > 0;
+}
+
+- (BOOL)handleBackNavigationRequest {
+    UINavigationController *navigationController = self.settingsVC.navigationController ?: self.navigationController;
+    if (navigationController && navigationController.topViewController != self.settingsVC) {
+        return NO;
+    }
+    if (![self isSearchInteractionActive]) {
+        return NO;
+    }
+
+    self.searchTextField.text = @"";
+    [self.searchTextField resignFirstResponder];
+    [self updateSearchPlaceholderVisibilityAnimated:YES];
+    self.viewModel.sectionDataArray = self.originalSections;
+    [UIView transitionWithView:self.settingsVC.tableView
+                      duration:0.18
+                       options:UIViewAnimationOptionTransitionCrossDissolve | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
+                    animations:^{
+                      [self.settingsVC.tableView reloadData];
+                    }
+                    completion:nil];
+    [self updateNavigationGestureState];
+    return YES;
+}
+
+- (void)installNavigationInterceptors {
+    UINavigationController *navigationController = self.settingsVC.navigationController;
+    if (!navigationController) {
+        return;
+    }
+
+    self.navigationController = navigationController;
+    // 系统返回手势代理由宿主导航控制器管理；搜索态改用独立边缘手势，
+    // 避免多个设置页协调器互相保存为 previous delegate 并形成代理环。
+    if (!self.searchBackGestureRecognizer) {
+        self.searchBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSearchBackGesture:)];
+        self.searchBackGestureRecognizer.edges = UIRectEdgeLeft;
+        self.searchBackGestureRecognizer.delegate = (id<UIGestureRecognizerDelegate>)self;
+        self.searchBackGestureRecognizer.enabled = NO;
+        [self.settingsVC.view addGestureRecognizer:self.searchBackGestureRecognizer];
+    }
+
+    UIGestureRecognizer *popGesture = navigationController.interactivePopGestureRecognizer;
+    if ([self isTopSettingsViewController] && popGesture && !self.hasStoredInteractivePopGestureEnabled) {
+        self.previousInteractivePopGestureEnabled = popGesture.enabled;
+        self.hasStoredInteractivePopGestureEnabled = YES;
+    }
+}
+
+- (BOOL)isTopSettingsViewController {
+    UINavigationController *navigationController = self.settingsVC.navigationController ?: self.navigationController;
+    return navigationController && navigationController.topViewController == self.settingsVC;
+}
+
+- (void)updateNavigationGestureState {
+    UINavigationController *navigationController = self.settingsVC.navigationController ?: self.navigationController;
+    if (![self isTopSettingsViewController]) {
+        self.searchBackGestureRecognizer.enabled = NO;
+        return;
+    }
+
+    UIGestureRecognizer *popGesture = navigationController.interactivePopGestureRecognizer;
+    BOOL searchActive = [self isSearchInteractionActive];
+
+    if (popGesture) {
+        if (!self.hasStoredInteractivePopGestureEnabled) {
+            self.previousInteractivePopGestureEnabled = popGesture.enabled;
+            self.hasStoredInteractivePopGestureEnabled = YES;
+        }
+        if (searchActive) {
+            popGesture.enabled = NO;
+        } else {
+            popGesture.enabled = self.previousInteractivePopGestureEnabled;
+        }
+    }
+
+    self.searchBackGestureRecognizer.enabled = searchActive;
+}
+
+- (void)restoreNavigationGestureState {
+    UINavigationController *navigationController = self.settingsVC.navigationController ?: self.navigationController;
+    UIGestureRecognizer *popGesture = navigationController.interactivePopGestureRecognizer;
+    if (popGesture && self.hasStoredInteractivePopGestureEnabled) {
+        popGesture.enabled = self.previousInteractivePopGestureEnabled;
+    }
+    self.hasStoredInteractivePopGestureEnabled = NO;
+    self.searchBackGestureRecognizer.enabled = NO;
+}
+
+- (void)handleSearchBackGesture:(UIScreenEdgePanGestureRecognizer *)gestureRecognizer {
+    if (gestureRecognizer.state == UIGestureRecognizerStateBegan) {
+        [self handleBackNavigationRequest];
+    }
+}
+
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    if (gestureRecognizer != self.searchBackGestureRecognizer) {
+        return YES;
+    }
+    return [self isTopSettingsViewController] && [self isSearchInteractionActive];
+}
+
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+    [self updateSearchPlaceholderVisibilityAnimated:YES];
+    [self updateNavigationGestureState];
+}
+
+- (void)textFieldDidEndEditing:(UITextField *)textField {
+    [self updateSearchPlaceholderVisibilityAnimated:YES];
+    [self updateNavigationGestureState];
+}
+
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+    [textField resignFirstResponder];
+    return NO;
+}
+
+- (void)dealloc {
+    [self restoreNavigationGestureState];
+    [self restorePinnedHeaderInsets];
+}
+
+@end
+
+static void DYYYAttachSettingsSearchHeader(AWESettingBaseViewController *settingsVC, AWESettingsViewModel *viewModel, NSArray *sections, NSArray<NSDictionary *> *searchEntries) {
+    if (!settingsVC || !viewModel || sections.count == 0) {
+        return;
+    }
+
+    DYYYSettingsSearchCoordinator *coordinator =
+        [[DYYYSettingsSearchCoordinator alloc] initWithSettingsVC:settingsVC viewModel:viewModel originalSections:sections searchEntries:searchEntries ?: @[]];
+    objc_setAssociatedObject(settingsVC, &kDYYYSettingsSearchCoordinatorKey, coordinator, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [coordinator installSearchHeader];
+    });
+}
+
+static void DYYYAttachSubSettingsSearchHeader(AWESettingBaseViewController *settingsVC, NSString *title, NSArray *sections) {
+    AWESettingsViewModel *viewModel = objc_getAssociatedObject(settingsVC, &kViewModelKey);
+    NSArray<NSDictionary *> *searchEntries = DYYYSettingsSearchEntriesForSections(title, sections);
+    DYYYAttachSettingsSearchHeader(settingsVC, viewModel, sections, searchEntries);
+}
+
+static void DYYYBuildSettingsSearchIndexIfNeeded(NSArray<AWESettingItemModel *> *categoryItems) {
+    if (DYYYSettingsSearchIndexBuilt) {
+        return;
+    }
+
+    DYYYSettingsSearchIndexBuilt = YES;
+    DYYYBuildingSettingsSearchIndex = YES;
+    for (AWESettingItemModel *item in categoryItems) {
+        if (item.cellTappedBlock) {
+            item.cellTappedBlock();
+        }
+    }
+    DYYYBuildingSettingsSearchIndex = NO;
+}
+
 %hook AWESettingBaseViewController
 - (BOOL)useCardUIStyle {
     return YES;
@@ -53,10 +1908,160 @@ static void DYYYRemoveRemoteConfigObserver(void) {
     return original;
 }
 
+- (void)viewWillAppear:(BOOL)animated {
+    %orig;
+    self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+    AWESettingsViewModel *settingsViewModel = (AWESettingsViewModel *)[self viewModel];
+    for (AWESettingSectionModel *section in settingsViewModel.sectionDataArray) {
+        for (AWESettingItemModel *item in section.itemArray) {
+            if ([item.identifier isEqualToString:@"DYYYEnableLoginBypass"]) {
+                item.isSwitchOn = [[NSUserDefaults standardUserDefaults] boolForKey:item.identifier];
+                [item refreshCell];
+                break;
+            }
+        }
+    }
+    DYYYSettingsSearchCoordinator *coordinator = objc_getAssociatedObject(self, &kDYYYSettingsSearchCoordinatorKey);
+    [coordinator applyThemeColors];
+    [coordinator installNavigationInterceptors];
+    [coordinator updateNavigationGestureState];
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [DYYYKeyboardAvoidanceCoordinator restoreForViewController:self animated:NO];
+    DYYYSettingsSearchCoordinator *coordinator = objc_getAssociatedObject(self, &kDYYYSettingsSearchCoordinatorKey);
+    [coordinator restoreNavigationGestureState];
+    %orig;
+}
+
+- (void)didSelectItemModel:(AWESettingItemModel *)itemModel {
+    if ([itemModel.identifier hasPrefix:@"DYYY"] && !itemModel.isEnable) {
+        return;
+    }
+    %orig;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    AWESettingsTableViewCell *cell = (AWESettingsTableViewCell *)[tableView cellForRowAtIndexPath:indexPath];
+    AWESettingItemModel *itemModel = [cell isKindOfClass:%c(AWESettingsTableViewCell)] ? cell.itemModel : nil;
+    if ([itemModel.identifier hasPrefix:@"DYYY"] && !itemModel.isEnable) {
+        [tableView deselectRowAtIndexPath:indexPath animated:YES];
+        return;
+    }
+    %orig;
+}
+
+- (void)viewDidLayoutSubviews {
+    %orig;
+    static char kDYYYSettingsLayoutGuardKey;
+    if (objc_getAssociatedObject(self, &kDYYYSettingsLayoutGuardKey)) {
+        return;
+    }
+    objc_setAssociatedObject(self, &kDYYYSettingsLayoutGuardKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    DYYYSettingsSearchCoordinator *coordinator = objc_getAssociatedObject(self, &kDYYYSettingsSearchCoordinatorKey);
+    [coordinator updateLayout];
+    for (AWESettingsTableViewCell *cell in self.tableView.visibleCells) {
+        if ([cell isKindOfClass:%c(AWESettingsTableViewCell)]) {
+            DYYYApplySettingCellChrome(cell);
+        }
+    }
+    objc_setAssociatedObject(self, &kDYYYSettingsLayoutGuardKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
 - (void)dealloc {
     DYYYRemoveRemoteConfigObserver();
     %orig;
 }
+%end
+
+%hook UINavigationController
+
+- (UIViewController *)popViewControllerAnimated:(BOOL)animated {
+    DYYYSettingsSearchCoordinator *coordinator = objc_getAssociatedObject(self.topViewController, &kDYYYSettingsSearchCoordinatorKey);
+    if ([coordinator handleBackNavigationRequest]) {
+        return nil;
+    }
+
+    return %orig;
+}
+
+%end
+
+%hook AWESettingsTableViewCell
+
+- (void)setItemModel:(AWESettingItemModel *)itemModel {
+    self.iconImageView.transform = CGAffineTransformIdentity;
+    self.detailLabel.transform = CGAffineTransformIdentity;
+    %orig;
+    DYYYApplySettingCellChrome(self);
+}
+
+- (void)prepareForReuse {
+    %orig;
+    self.iconImageView.transform = CGAffineTransformIdentity;
+    self.detailLabel.transform = CGAffineTransformIdentity;
+}
+
+- (void)updateSubviews {
+    %orig;
+    DYYYApplySettingCellChrome(self);
+}
+
+- (void)updateSubviewsAfterLayout {
+    %orig;
+    DYYYApplySettingCellChrome(self);
+}
+
+- (void)layoutSubviews {
+    %orig;
+    DYYYApplySettingCellChrome(self);
+}
+
+%new
+- (void)dyyyInlineTextEditingDidBegin:(UITextField *)textField {
+    UIResponder *responder = self;
+    while ((responder = responder.nextResponder)) {
+        if ([responder isKindOfClass:%c(AWESettingBaseViewController)]) {
+            AWESettingBaseViewController *settingsVC = (AWESettingBaseViewController *)responder;
+            [DYYYKeyboardAvoidanceCoordinator beginAvoidingInputView:textField inViewController:settingsVC scrollView:settingsVC.tableView];
+            break;
+        }
+    }
+}
+
+%new
+- (void)dyyyInlineTextReturn:(UITextField *)textField {
+    [textField resignFirstResponder];
+}
+
+%new
+- (void)dyyyInlineTextEditingDidEnd:(UITextField *)textField {
+    AWESettingItemModel *itemModel = self.itemModel;
+    NSString *configuredIdentifier = objc_getAssociatedObject(self, &kDYYYInlineTextFieldIdentifierKey);
+    if (!itemModel.isEnable || ![configuredIdentifier isEqualToString:itemModel.identifier]) {
+        textField.text = DYYYInlineTextInputCurrentValue(itemModel.identifier);
+        return;
+    }
+    NSString *committedValue = DYYYCommitInlineTextInput(itemModel, textField.text);
+    textField.text = committedValue ?: DYYYInlineTextInputCurrentValue(itemModel.identifier);
+}
+
+%new
+- (void)dyyyInlineOptionsSegmentChanged:(UISegmentedControl *)segmentedControl {
+    AWESettingItemModel *itemModel = self.itemModel;
+    NSArray<NSString *> *options = DYYYInlineOptionsForIdentifier(itemModel.identifier);
+    NSInteger selectedIndex = segmentedControl.selectedSegmentIndex;
+    if (!itemModel.isEnable || selectedIndex < 0 || selectedIndex >= (NSInteger)options.count) {
+        return;
+    }
+
+    NSString *selectedValue = options[(NSUInteger)selectedIndex];
+    [DYYYSettingsHelper setUserDefaults:selectedValue forKey:itemModel.identifier];
+    itemModel.detail = @"";
+    [itemModel refreshCell];
+    DYYYApplyInlineOptionsToCell(self);
+}
+
 %end
 
 // 隐藏掉天气Label
@@ -219,7 +2224,13 @@ static void DYYYRemoveRemoteConfigObserver(void) {
 extern "C"
 #endif
 void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
+    if (!rootVC || gDYYYOpeningSettings) {
+        return;
+    }
+    gDYYYOpeningSettings = YES;
+
     AWESettingBaseViewController *settingsVC = [[%c(AWESettingBaseViewController) alloc] init];
+    settingsVC.colorStyle = 2;
     if (!hasAgreed) {
         [DYYYSettingsHelper showAboutDialog:@"用户协议"
                                     message:@"本插件为开源项目\n仅供学习交流用途\n如有侵权请联系, GitHub 仓库：huami1314/DYYY\n请遵守当地法律法规, "
@@ -229,23 +2240,8 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
                                   }];
     }
 
-    // 等待视图加载并使用KVO安全访问属性
-    dispatch_async(dispatch_get_main_queue(), ^{
-      if ([settingsVC.view isKindOfClass:[UIView class]]) {
-          for (UIView *subview in settingsVC.view.subviews) {
-              if ([subview isKindOfClass:%c(AWENavigationBar)]) {
-                  AWENavigationBar *navigationBar = (AWENavigationBar *)subview;
-                  if ([navigationBar respondsToSelector:@selector(titleLabel)]) {
-                      navigationBar.titleLabel.text = DYYY_NAME;
-                  }
-                  break;
-              }
-          }
-      }
-    });
-
     AWESettingsViewModel *viewModel = [[%c(AWESettingsViewModel) alloc] init];
-    viewModel.colorStyle = 0;
+    viewModel.colorStyle = 2;
 
     // 创建主分类列表
     AWESettingSectionModel *mainSection = [[%c(AWESettingSectionModel) alloc] init];
@@ -261,83 +2257,15 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
     basicSettingItem.type = 0;
     basicSettingItem.svgIconImageName = @"ic_gearsimplify_outlined_20";
     basicSettingItem.cellType = 26;
-    basicSettingItem.colorStyle = 0;
+    basicSettingItem.colorStyle = 2;
     basicSettingItem.isEnable = YES;
     basicSettingItem.cellTappedBlock = ^{
       // 创建基本设置二级界面的设置项
       NSMutableDictionary *cellTapHandlers = [NSMutableDictionary dictionary];
 
-      // 【外观设置】分类
-      NSMutableArray<AWESettingItemModel *> *appearanceItems = [NSMutableArray array];
-      NSArray *appearanceSettings = @[
-          @{@"identifier" : @"DYYYEnableDanmuColor",
-            @"title" : @"启用弹幕改色",
-            @"detail" : @"",
-            @"cellType" : @6,
-            @"imageName" : @"ic_dansquare_outlined_20"},
-          @{
-              @"identifier" : @"DYYYDanmuColor",
-              @"title" : @"自定弹幕颜色",
-              @"subTitle" : @"填入 random 使用随机颜色弹幕",
-              @"detail" : @"十六进制",
-              @"cellType" : @20,
-              @"imageName" : @"ic_dansquarenut_outlined_20"
-          },
-          @{
-              @"identifier" : @"DYYYDanmuRainbowRotating",
-              @"title" : @"旋转彩虹弹幕",
-              @"subTitle" : @"启用后将覆盖上面的自定义弹幕颜色",
-              @"detail" : @"",
-              @"cellType" : @37,
-              @"imageName" : @"ic_dansquarenut_outlined_20"
-          }
-      ];
-
-      for (NSDictionary *dict in appearanceSettings) {
-          AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
-          [appearanceItems addObject:item];
-      }
-
-      // 【视频播放设置】分类
-      NSMutableArray<AWESettingItemModel *> *videoItems = [NSMutableArray array];
-      NSArray *videoSettings = @[
-          @{
-              @"identifier" : @"DYYYVideoBGColor",
-              @"title" : @"视频背景颜色",
-              @"subTitle" : @"可以自定义部分横屏视频的背景颜色",
-              @"detail" : @"",
-              @"cellType" : @20,
-              @"imageName" : @"ic_tv_outlined_20"
-          },
-          @{
-              @"identifier" : @"DYYYShowScheduleDisplay",
-              @"title" : @"显示进度时长",
-              @"subTitle" : @"强制显示所有视频的进度条和时长",
-              @"detail" : @"",
-              @"cellType" : @37,
-              @"imageName" : @"ic_playertime_outlined_20"
-          },
-          @{@"identifier" : @"DYYYScheduleStyle",
-            @"title" : @"进度时长样式",
-            @"detail" : @"",
-            @"cellType" : @26,
-            @"imageName" : @"ic_playertime_outlined_20"},
-          @{@"identifier" : @"DYYYProgressLabelColor",
-            @"title" : @"进度标签颜色",
-            @"detail" : @"十六进制",
-            @"cellType" : @26,
-            @"imageName" : @"ic_playertime_outlined_20"},
-          @{@"identifier" : @"DYYYTimelineVerticalPosition",
-            @"title" : @"进度纵轴位置",
-            @"detail" : @"-12.5",
-            @"cellType" : @26,
-            @"imageName" : @"ic_playertime_outlined_20"},
-          @{@"identifier" : @"DYYYHideVideoProgress",
-            @"title" : @"隐藏视频进度",
-            @"subTitle" : @"隐藏视频进度条",
-            @"detail" : @"",
-            @"cellType" : @37,
-            @"imageName" : @"ic_playertime_outlined_20"},
+      // 【播放控制】
+      NSMutableArray<AWESettingItemModel *> *playbackItems = [NSMutableArray array];
+      NSArray *playbackSettings = @[
           @{
               @"identifier" : @"DYYYEnableAutoPlay",
               @"title" : @"启用自动播放",
@@ -379,7 +2307,139 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               @"detail" : @"",
               @"cellType" : @37,
               @"imageName" : @"ic_speed_outlined_20"
+          }
+      ];
+
+      for (NSDictionary *dict in playbackSettings) {
+          AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
+
+          if ([item.identifier isEqualToString:@"DYYYDefaultSpeed"]) {
+              NSString *savedSpeed = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYDefaultSpeed"];
+              item.detail = savedSpeed ?: @"1.0x";
+              item.cellTappedBlock = ^{
+                if (DYYYShouldUseInlineOptionsForCurrentScreen(item))
+                    return;
+                NSArray *speedOptions = @[ @"0.75x", @"1.0x", @"1.25x", @"1.5x", @"2.0x", @"2.5x", @"3.0x" ];
+                [DYYYOptionsSelectionView showWithPreferenceKey:@"DYYYDefaultSpeed"
+                                                   optionsArray:speedOptions
+                                                     headerText:@"选择默认倍速"
+                                                 onPresentingVC:topView()
+                                               selectionChanged:^(NSString *selectedValue) {
+                                                 item.detail = selectedValue;
+                                                 [item refreshCell];
+                                               }];
+              };
+          } else if ([item.identifier isEqualToString:@"DYYYLongPressSpeed"]) {
+              NSString *savedSpeed = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYLongPressSpeed"];
+              item.detail = savedSpeed ?: @"2.0x";
+              item.cellTappedBlock = ^{
+                if (DYYYShouldUseInlineOptionsForCurrentScreen(item))
+                    return;
+                NSArray *speedOptions = @[ @"0.75x", @"1.0x", @"1.25x", @"1.5x", @"2.0x", @"2.5x", @"3.0x" ];
+                [DYYYOptionsSelectionView showWithPreferenceKey:@"DYYYLongPressSpeed"
+                                                   optionsArray:speedOptions
+                                                     headerText:@"选择右侧长按倍速"
+                                                 onPresentingVC:topView()
+                                               selectionChanged:^(NSString *selectedValue) {
+                                                 item.detail = selectedValue;
+                                                 [item refreshCell];
+                                               }];
+              };
+          }
+
+          [playbackItems addObject:item];
+      }
+
+      // 【进度显示】
+      NSMutableArray<AWESettingItemModel *> *progressItems = [NSMutableArray array];
+      NSArray *progressSettings = @[
+          @{
+              @"identifier" : @"DYYYShowScheduleDisplay",
+              @"title" : @"显示进度时长",
+              @"subTitle" : @"强制显示所有视频的进度条和时长",
+              @"detail" : @"",
+              @"cellType" : @37,
+              @"imageName" : @"ic_playertime_outlined_20"
           },
+          @{@"identifier" : @"DYYYScheduleStyle",
+            @"title" : @"进度时长样式",
+            @"detail" : @"",
+            @"cellType" : @26,
+            @"imageName" : @"ic_playertime_outlined_20"},
+          @{@"identifier" : @"DYYYProgressLabelColor",
+            @"title" : @"进度标签颜色",
+            @"detail" : @"十六进制",
+            @"cellType" : @26,
+            @"imageName" : @"ic_playertime_outlined_20"},
+          @{@"identifier" : @"DYYYTimelineVerticalPosition",
+            @"title" : @"进度纵轴位置",
+            @"detail" : @"-12.5",
+            @"cellType" : @26,
+            @"imageName" : @"ic_playertime_outlined_20"},
+          @{@"identifier" : @"DYYYHideVideoProgress",
+            @"title" : @"隐藏视频进度",
+            @"subTitle" : @"隐藏视频进度条",
+            @"detail" : @"",
+            @"cellType" : @37,
+            @"imageName" : @"ic_playertime_outlined_20"}
+      ];
+
+      for (NSDictionary *dict in progressSettings) {
+          AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
+          if ([item.identifier isEqualToString:@"DYYYScheduleStyle"]) {
+              NSString *savedStyle = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYScheduleStyle"];
+              item.detail = savedStyle ?: @"默认";
+              item.cellTappedBlock = ^{
+                if (DYYYShouldUseInlineOptionsForCurrentScreen(item))
+                    return;
+                NSArray *styleOptions = @[ @"进度条两侧上下", @"进度条左侧剩余", @"进度条左侧完整", @"进度条右侧剩余", @"进度条右侧完整" ];
+                [DYYYOptionsSelectionView showWithPreferenceKey:@"DYYYScheduleStyle"
+                                                   optionsArray:styleOptions
+                                                     headerText:@"选择进度时长样式"
+                                                 onPresentingVC:topView()
+                                               selectionChanged:^(NSString *selectedValue) {
+                                                 item.detail = selectedValue;
+                                                 [item refreshCell];
+                                               }];
+              };
+          }
+          [progressItems addObject:item];
+      }
+
+      // 【弹幕】
+      NSMutableArray<AWESettingItemModel *> *danmuItems = [NSMutableArray array];
+      NSArray *danmuSettings = @[
+          @{@"identifier" : @"DYYYEnableDanmuColor",
+            @"title" : @"启用弹幕改色",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_dansquare_outlined_20"},
+          @{
+              @"identifier" : @"DYYYDanmuColor",
+              @"title" : @"自定弹幕颜色",
+              @"subTitle" : @"填入 random 使用随机颜色弹幕",
+              @"detail" : @"十六进制",
+              @"cellType" : @20,
+              @"imageName" : @"ic_dansquarenut_outlined_20"
+          },
+          @{
+              @"identifier" : @"DYYYDanmuRainbowRotating",
+              @"title" : @"旋转彩虹弹幕",
+              @"subTitle" : @"启用后将覆盖上面的自定义弹幕颜色",
+              @"detail" : @"",
+              @"cellType" : @37,
+              @"imageName" : @"ic_dansquarenut_outlined_20"
+          }
+      ];
+
+      for (NSDictionary *dict in danmuSettings) {
+          AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
+          [danmuItems addObject:item];
+      }
+
+      // 【属地标签】
+      NSMutableArray<AWESettingItemModel *> *areaLabelItems = [NSMutableArray array];
+      NSArray *areaLabelSettings = @[
           @{@"identifier" : @"DYYYEnableArea",
             @"title" : @"时间属地显示",
             @"detail" : @"",
@@ -393,11 +2453,6 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               @"cellType" : @20,
               @"imageName" : @"ic_ip_outlined_12"
           },
-          @{@"identifier" : @"DYYYLabelStyle",
-            @"title" : @"文案标签样式",
-            @"detail" : @"",
-            @"cellType" : @26,
-            @"imageName" : @"ic_tag_outlined_20"},
           @{@"identifier" : @"DYYYLabelColor",
             @"title" : @"属地标签颜色",
             @"detail" : @"十六进制",
@@ -410,71 +2465,23 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               @"detail" : @"",
               @"cellType" : @37,
               @"imageName" : @"ic_location_outlined_20"
-          }
+          },
+          @{@"identifier" : @"DYYYLabelStyle",
+            @"title" : @"文案标签样式",
+            @"detail" : @"",
+            @"cellType" : @26,
+            @"imageName" : @"ic_tag_outlined_20"}
       ];
 
-      for (NSDictionary *dict in videoSettings) {
+      for (NSDictionary *dict in areaLabelSettings) {
           AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
-
-          if ([item.identifier isEqualToString:@"DYYYDefaultSpeed"]) {
-              NSString *savedSpeed = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYDefaultSpeed"];
-              item.detail = savedSpeed ?: @"1.0x";
-
-              item.cellTappedBlock = ^{
-                NSArray *speedOptions = @[ @"0.75x", @"1.0x", @"1.25x", @"1.5x", @"2.0x", @"2.5x", @"3.0x" ];
-
-                [DYYYOptionsSelectionView showWithPreferenceKey:@"DYYYDefaultSpeed"
-                                                   optionsArray:speedOptions
-                                                     headerText:@"选择默认倍速"
-                                                 onPresentingVC:topView()
-                                               selectionChanged:^(NSString *selectedValue) {
-                                                 item.detail = selectedValue;
-                                                 [item refreshCell];
-                                               }];
-              };
-          }
-
-          else if ([item.identifier isEqualToString:@"DYYYLongPressSpeed"]) {
-              NSString *savedSpeed = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYLongPressSpeed"];
-              item.detail = savedSpeed ?: @"2.0x";
-
-              item.cellTappedBlock = ^{
-                NSArray *speedOptions = @[ @"0.75x", @"1.0x", @"1.25x", @"1.5x", @"2.0x", @"2.5x", @"3.0x" ];
-
-                [DYYYOptionsSelectionView showWithPreferenceKey:@"DYYYLongPressSpeed"
-                                                   optionsArray:speedOptions
-                                                     headerText:@"选择右侧长按倍速"
-                                                 onPresentingVC:topView()
-                                               selectionChanged:^(NSString *selectedValue) {
-                                                 item.detail = selectedValue;
-                                                 [item refreshCell];
-                                               }];
-              };
-          }
-
-          else if ([item.identifier isEqualToString:@"DYYYScheduleStyle"]) {
-              NSString *savedStyle = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYScheduleStyle"];
-              item.detail = savedStyle ?: @"默认";
-              item.cellTappedBlock = ^{
-                NSArray *styleOptions = @[ @"进度条两侧上下", @"进度条左侧剩余", @"进度条左侧完整", @"进度条右侧剩余", @"进度条右侧完整" ];
-
-                [DYYYOptionsSelectionView showWithPreferenceKey:@"DYYYScheduleStyle"
-                                                   optionsArray:styleOptions
-                                                     headerText:@"选择进度时长样式"
-                                                 onPresentingVC:topView()
-                                               selectionChanged:^(NSString *selectedValue) {
-                                                 item.detail = selectedValue;
-                                                 [item refreshCell];
-                                               }];
-              };
-          }
-
-          else if ([item.identifier isEqualToString:@"DYYYLabelStyle"]) {
+          if ([item.identifier isEqualToString:@"DYYYLabelStyle"]) {
               NSString *savedStyle = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYLabelStyle"];
               item.detail = savedStyle ?: @"默认";
               item.cellTappedBlock = ^{
+                if (DYYYShouldUseInlineOptionsForCurrentScreen(item))
+                    return;
                 NSArray *styleOptions = @[ @"文案标签显示", @"文案标签隐藏", @"文案标签禁止跳转搜索" ];
-
                 [DYYYOptionsSelectionView showWithPreferenceKey:@"DYYYLabelStyle"
                                                    optionsArray:styleOptions
                                                      headerText:@"选择文案标签样式"
@@ -485,12 +2492,81 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
                                                }];
               };
           }
-
-          [videoItems addObject:item];
+          [areaLabelItems addObject:item];
       }
-      // 【杂项设置】分类
-      NSMutableArray<AWESettingItemModel *> *miscellaneousItems = [NSMutableArray array];
-      NSArray *miscellaneousSettings = @[
+
+      // 【画质帧率】
+      NSMutableArray<AWESettingItemModel *> *qualityItems = [NSMutableArray array];
+      NSArray *qualitySettings = @[
+          @{@"identifier" : kDYYYEnableHighFPSSettingIdentifier,
+            @"title" : kDYYYEnableHighFPSSettingTitle,
+            @"subTitle" : @"开启后使用设备最高可用帧率，负载过重时会自动降档；可能增加耗电，按需开启。",
+            @"detail" : @"",
+            @"cellType" : @37,
+            @"imageName" : kDYYYEnableHighFPSSVGIconName},
+          @{@"identifier" : kDYYYShowFPSOverlaySettingIdentifier,
+            @"title" : kDYYYShowFPSOverlaySettingTitle,
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : kDYYYShowFPSOverlaySVGIconName},
+          @{@"identifier" : @"DYYYEnableVideoHighestQuality",
+            @"title" : @"提高视频画质",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_squaretriangletwo_outlined_20"},
+          @{@"identifier" : @"DYYYHDRMode",
+            @"title" : @"全局HDR设置",
+            @"subTitle" : @"开启并选择后全局屏蔽HDR效果/过滤HDR作品。",
+            @"detail" : @"关闭",
+            @"cellType" : @26,
+            @"imageName" : @"ic_sun_outlined"}
+      ];
+
+      for (NSDictionary *dict in qualitySettings) {
+          AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
+
+          if ([item.identifier isEqualToString:kDYYYEnableHighFPSSettingIdentifier]) {
+              void (^originalSwitchChangedBlock)(void) = item.switchChangedBlock;
+              item.switchChangedBlock = ^{
+                if (originalSwitchChangedBlock) {
+                    originalSwitchChangedBlock();
+                }
+                BOOL enabled = [DYYYSettingsHelper getUserDefaults:kDYYYEnableHighFPSSettingIdentifier];
+                DYYYApplyHighFPSSettingChange(enabled);
+                DYYYApplyFPSOverlaySettingChange();
+              };
+          } else if ([item.identifier isEqualToString:kDYYYShowFPSOverlaySettingIdentifier]) {
+              void (^originalSwitchChangedBlock)(void) = item.switchChangedBlock;
+              item.switchChangedBlock = ^{
+                if (originalSwitchChangedBlock) {
+                    originalSwitchChangedBlock();
+                }
+                DYYYApplyFPSOverlaySettingChange();
+              };
+          } else if ([item.identifier isEqualToString:@"DYYYHDRMode"]) {
+              NSString *savedMode = [[NSUserDefaults standardUserDefaults] stringForKey:@"DYYYHDRMode"] ?: @"关闭";
+              item.detail = savedMode;
+              item.cellTappedBlock = ^{
+                if (DYYYShouldUseInlineOptionsForCurrentScreen(item))
+                    return;
+                NSArray *options = @[ @"关闭", @"全局屏蔽HDR效果", @"全局过滤HDR作品" ];
+                [DYYYOptionsSelectionView showWithPreferenceKey:@"DYYYHDRMode"
+                                                   optionsArray:options
+                                                     headerText:@"选择 HDR 处理模式"
+                                                 onPresentingVC:topView()
+                                               selectionChanged:^(NSString *selectedValue) {
+                                                 item.detail = selectedValue;
+                                                 [item refreshCell];
+                                               }];
+              };
+          }
+
+          [qualityItems addObject:item];
+      }
+
+      // 【直播】
+      NSMutableArray<AWESettingItemModel *> *liveItems = [NSMutableArray array];
+      NSArray *liveSettings = @[
           @{@"identifier" : @"DYYYLiveQuality",
             @"title" : @"默认直播画质",
             @"detail" : @"自动",
@@ -500,47 +2576,30 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"title" : @"直播真实人数",
             @"subTitle" : @"直播显示具体的在线人数",
             @"detail" : @"",
-            @"cellType" : @37, 
+            @"cellType" : @37,
             @"imageName" : @"ic_video_outlined_20"},
-            
-          @{@"identifier" : @"DYYYCommentExactTime",
-            @"title" : @"评论具体时间",
-            @"subTitle" : @"开启后评论区将显示具体的发布时间而非相对时间",
+          @{@"identifier" : @"DYYYShowLiveDuration",
+            @"title" : @"显示开播时长",
+            @"subTitle" : @"在直播间左上角显示主播已开播时间",
             @"detail" : @"",
             @"cellType" : @37,
             @"imageName" : @"ic_clock_outlined_20"},
-          @{@"identifier" : @"DYYYEnableVideoHighestQuality",
-            @"title" : @"提高视频画质",
+          @{@"identifier" : @"DYYYDisableLivePCDN",
+            @"title" : @"屏蔽直播PCDN功能",
             @"detail" : @"",
             @"cellType" : @6,
-            @"imageName" : @"ic_squaretriangletwo_outlined_20"},
-          @{@"identifier" : @"DYYYHideStatusbar",
-            @"title" : @"隐藏系统顶栏",
-            @"subTitle" : @"隐藏系统状态栏",
-            @"detail" : @"",
-            @"cellType" : @37,
-            @"imageName" : @"ic_eyeslash_outlined_16"},
-          @{@"identifier" : @"DYYYEnablePure",
-            @"title" : @"启用首页净化",
-            @"detail" : @"",
-            @"cellType" : @6,
-            @"imageName" : @"ic_rectangleportraittriangle_outlined_20"},
-          @{@"identifier" : @"DYYYEnableFullScreen",
-            @"title" : @"启用首页全屏",
-            @"detail" : @"",
-            @"cellType" : @6,
-            @"imageName" : @"ic_fullscreen_outlined_16"}
+            @"imageName" : @"ic_video_outlined_20"}
       ];
 
-      for (NSDictionary *dict in miscellaneousSettings) {
+      for (NSDictionary *dict in liveSettings) {
           AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
-
           if ([item.identifier isEqualToString:@"DYYYLiveQuality"]) {
               NSString *savedQuality = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYLiveQuality"] ?: @"自动";
               item.detail = savedQuality;
               item.cellTappedBlock = ^{
+                if (DYYYShouldUseInlineOptionsForCurrentScreen(item))
+                    return;
                 NSArray *qualities = @[ @"蓝光帧彩", @"蓝光", @"超清", @"高清", @"标清", @"自动" ];
-
                 [DYYYOptionsSelectionView showWithPreferenceKey:@"DYYYLiveQuality"
                                                    optionsArray:qualities
                                                      headerText:@"选择默认直播画质\n无对应画质时会切换到比选择画质低一级的画质"
@@ -551,10 +2610,10 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
                                                }];
               };
           }
-
-          [miscellaneousItems addObject:item];
+          [liveItems addObject:item];
       }
-      // 【过滤与屏蔽】分类
+
+      // 【推荐过滤】
       NSMutableArray<AWESettingItemModel *> *filterItems = [NSMutableArray array];
       NSArray *filterSettings = @[
           @{@"identifier" : @"DYYYSkipLive",
@@ -590,6 +2649,12 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"detail" : @"",
             @"cellType" : @37,
             @"imageName" : @"ic_video_outlined_20"},
+          @{@"identifier" : @"DYYYSkipFriendsVideo",
+            @"title" : @"推荐过滤朋友视频",
+            @"subTitle" : @"开启后会过滤朋友的作品",
+            @"detail" : @"",
+            @"cellType" : @37,
+            @"imageName" : @"ic_video_outlined_20"},
           @{@"identifier" : @"DYYYSkipMusic",
             @"title" : @"推荐过滤音乐",
             @"detail" : @"",
@@ -607,6 +2672,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"imageName" : @"ic_thumbsdown_outlined_20"},
           @{@"identifier" : @"DYYYFilterUsers",
             @"title" : @"推荐过滤用户",
+            @"subTitle" : @"支持直接填写用户UID；建议通过长按面板添加",
             @"detail" : @"",
             @"cellType" : @26,
             @"imageName" : @"ic_userban_outlined_20"},
@@ -627,15 +2693,82 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               @"detail" : @"",
               @"cellType" : @20,
               @"imageName" : @"ic_playertime_outlined_20"
-          },
-          @{@"identifier" : @"DYYYFilterFeedHDR",
-            @"title" : @"推荐过滤HDR",
-            @"subTitle" : @"开启后推荐流会屏蔽 HDR 视频",
-            @"detail" : @"",
-            @"cellType" : @37,
-            @"imageName" : @"ic_sun_outlined"},
+          }
+      ];
+
+      for (NSDictionary *dict in filterSettings) {
+          AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
+
+          if ([item.identifier isEqualToString:@"DYYYFilterLowLikes"]) {
+              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterLowLikes"];
+              item.detail = savedValue ?: @"0";
+              item.cellTappedBlock = nil;
+          } else if ([item.identifier isEqualToString:@"DYYYFilterUsers"]) {
+              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterUsers"];
+              item.detail = savedValue ?: @"";
+              item.cellTappedBlock = ^{
+                NSString *savedKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterUsers"] ?: @"";
+                NSArray *keywordArray = savedKeywords.length > 0 ? [savedKeywords componentsSeparatedByString:@","] : @[];
+                DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"过滤用户列表" keywords:keywordArray];
+                keywordListView.addItemTitle = @"添加用户UID";
+                keywordListView.editItemTitle = @"编辑用户";
+                keywordListView.inputPlaceholder = @"请输入用户UID";
+                keywordListView.onConfirm = ^(NSArray *keywords) {
+                  NSString *keywordString = [keywords componentsJoinedByString:@","];
+                  [DYYYSettingsHelper setUserDefaults:keywordString forKey:@"DYYYFilterUsers"];
+                  item.detail = keywordString;
+                  [item refreshCell];
+                };
+                [keywordListView show];
+              };
+          } else if ([item.identifier isEqualToString:@"DYYYFilterKeywords"]) {
+              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"];
+              item.detail = savedValue ?: @"";
+              item.cellTappedBlock = ^{
+                NSString *savedKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"] ?: @"";
+                NSArray *keywordArray = savedKeywords.length > 0 ? [savedKeywords componentsSeparatedByString:@","] : @[];
+                DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"设置过滤关键词" keywords:keywordArray];
+                keywordListView.onConfirm = ^(NSArray *keywords) {
+                  NSString *keywordString = [keywords componentsJoinedByString:@","];
+                  [DYYYSettingsHelper setUserDefaults:keywordString forKey:@"DYYYFilterKeywords"];
+                  item.detail = keywordString;
+                  [item refreshCell];
+                };
+                [keywordListView show];
+              };
+          } else if ([item.identifier isEqualToString:@"DYYYFilterTimeLimit"]) {
+              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterTimeLimit"];
+              item.detail = savedValue ?: @"";
+              item.cellTappedBlock = nil;
+          } else if ([item.identifier isEqualToString:@"DYYYFilterProp"]) {
+              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterProp"];
+              item.detail = savedValue ?: @"";
+              item.cellTappedBlock = ^{
+                NSString *savedKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterProp"] ?: @"";
+                NSArray *keywordArray = savedKeywords.length > 0 ? [savedKeywords componentsSeparatedByString:@","] : @[];
+                DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"设置过滤词（支持部分匹配）" keywords:keywordArray];
+                keywordListView.onConfirm = ^(NSArray *keywords) {
+                  NSString *keywordString = [keywords componentsJoinedByString:@","];
+                  [DYYYSettingsHelper setUserDefaults:keywordString forKey:@"DYYYFilterProp"];
+                  item.detail = keywordString;
+                  [item refreshCell];
+                };
+                [keywordListView show];
+              };
+          }
+          [filterItems addObject:item];
+      }
+
+      // 【广告与弹窗】
+      NSMutableArray<AWESettingItemModel *> *adsItems = [NSMutableArray array];
+      NSArray *adsSettings = @[
           @{@"identifier" : @"DYYYNoAds",
             @"title" : @"启用屏蔽广告",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_ad_outlined_20"},
+          @{@"identifier" : kDYYYMiniProgramJumpingAdsSettingIdentifier,
+            @"title" : @"小程序跳广告",
             @"detail" : @"",
             @"cellType" : @6,
             @"imageName" : @"ic_ad_outlined_20"},
@@ -649,113 +2782,58 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"subTitle" : @"屏蔽抖音应用的版本更新",
             @"detail" : @"",
             @"cellType" : @37,
-            @"imageName" : @"ic_circletop_outlined"},
-          @{@"identifier" : @"DYYYDisableLivePCDN",
-            @"title" : @"屏蔽直播PCDN功能",
-            @"detail" : @"",
-            @"cellType" : @6,
-            @"imageName" : @"ic_video_outlined_20"}
+            @"imageName" : @"ic_circletop_outlined"}
       ];
 
-      for (NSDictionary *dict in filterSettings) {
+      for (NSDictionary *dict in adsSettings) {
           AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
-
-          if ([item.identifier isEqualToString:@"DYYYFilterLowLikes"]) {
-              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterLowLikes"];
-              item.detail = savedValue ?: @"0";
-              item.cellTappedBlock = ^{
-                [DYYYSettingsHelper showTextInputAlert:@"设置过滤赞数阈值"
-                                           defaultText:item.detail
-                                           placeholder:@"填0关闭功能"
-                                             onConfirm:^(NSString *text) {
-                                               NSScanner *scanner = [NSScanner scannerWithString:text];
-                                               NSInteger value;
-                                               BOOL isValidNumber = [scanner scanInteger:&value] && [scanner isAtEnd];
-
-                                               if (isValidNumber) {
-                                                   if (value < 0)
-                                                       value = 0;
-                                                   NSString *valueString = [NSString stringWithFormat:@"%ld", (long)value];
-                                                   [DYYYSettingsHelper setUserDefaults:valueString forKey:@"DYYYFilterLowLikes"];
-
-                                                   item.detail = valueString;
-                                                   [item refreshCell];
-                                               } else {
-                                                   DYYYAboutDialogView *errorDialog = [[DYYYAboutDialogView alloc] initWithTitle:@"输入错误" message:@"\n\n请输入有效的数字\n\n"];
-                                                   [errorDialog show];
-                                               }
-                                             }
-                                              onCancel:nil];
-              };
-          } else if ([item.identifier isEqualToString:@"DYYYFilterUsers"]) {
-              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterUsers"];
-              item.detail = savedValue ?: @"";
-              item.cellTappedBlock = ^{
-                // 将保存的逗号分隔字符串转换为数组
-                NSString *savedKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterUsers"] ?: @"";
-                NSArray *keywordArray = [savedKeywords length] > 0 ? [savedKeywords componentsSeparatedByString:@","] : @[];
-                DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"过滤用户列表" keywords:keywordArray];
-                keywordListView.onConfirm = ^(NSArray *keywords) {
-                  NSString *keywordString = [keywords componentsJoinedByString:@","];
-                  [DYYYSettingsHelper setUserDefaults:keywordString forKey:@"DYYYFilterUsers"];
-                  item.detail = keywordString;
-                  [item refreshCell];
-                };
-
-                [keywordListView show];
-              };
-          } else if ([item.identifier isEqualToString:@"DYYYFilterKeywords"]) {
-              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"];
-              item.detail = savedValue ?: @"";
-              item.cellTappedBlock = ^{
-                NSString *savedKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterKeywords"] ?: @"";
-                NSArray *keywordArray = [savedKeywords length] > 0 ? [savedKeywords componentsSeparatedByString:@","] : @[];
-                DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"设置过滤关键词" keywords:keywordArray];
-                keywordListView.onConfirm = ^(NSArray *keywords) {
-                  NSString *keywordString = [keywords componentsJoinedByString:@","];
-
-                  [DYYYSettingsHelper setUserDefaults:keywordString forKey:@"DYYYFilterKeywords"];
-                  item.detail = keywordString;
-                  [item refreshCell];
-                };
-                [keywordListView show];
-              };
-          } else if ([item.identifier isEqualToString:@"DYYYFilterTimeLimit"]) {
-              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterTimeLimit"];
-              item.detail = savedValue ?: @"";
-              item.cellTappedBlock = ^{
-                [DYYYSettingsHelper showTextInputAlert:@"过滤视频的发布时间"
-                                           defaultText:item.detail
-                                           placeholder:@"单位为天"
-                                             onConfirm:^(NSString *text) {
-                                               NSString *trimmedText = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                                               [DYYYSettingsHelper setUserDefaults:trimmedText forKey:@"DYYYFilterTimeLimit"];
-                                               item.detail = trimmedText ?: @"";
-                                               [item refreshCell];
-                                             }
-                                              onCancel:nil];
-              };
-          } else if ([item.identifier isEqualToString:@"DYYYFilterProp"]) {
-              NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterProp"];
-              item.detail = savedValue ?: @"";
-              item.cellTappedBlock = ^{
-                NSString *savedKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYFilterProp"] ?: @"";
-                NSArray *keywordArray = [savedKeywords length] > 0 ? [savedKeywords componentsSeparatedByString:@","] : @[];
-                DYYYKeywordListView *keywordListView = [[DYYYKeywordListView alloc] initWithTitle:@"设置过滤词（支持部分匹配）" keywords:keywordArray];
-                keywordListView.onConfirm = ^(NSArray *keywords) {
-                  NSString *keywordString = [keywords componentsJoinedByString:@","];
-
-                  [DYYYSettingsHelper setUserDefaults:keywordString forKey:@"DYYYFilterProp"];
-                  item.detail = keywordString;
-                  [item refreshCell];
-                };
-                [keywordListView show];
-              };
-          }
-          [filterItems addObject:item];
+          [adsItems addObject:item];
       }
 
-      // 【二次确认】分类
+      // 【隐私】
+      NSMutableArray<AWESettingItemModel *> *privacyItems = [NSMutableArray array];
+      NSArray *privacySettings = @[
+          @{@"identifier" : @"DYYYCommentExactTime",
+            @"title" : @"评论具体时间",
+            @"subTitle" : @"开启后评论区将显示具体的发布时间而非相对时间",
+            @"detail" : @"",
+            @"cellType" : @37,
+            @"imageName" : @"ic_clock_outlined_20"},
+          @{@"identifier" : @"DYYYDisableProfileVisitRecordUpload",
+            @"title" : @"禁用访客记录上传",
+            @"subTitle" : @"访问用户主页时不上传该访问记录",
+            @"detail" : @"",
+            @"cellType" : @37,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : @"DYYYDisableAwemeViewRecordUpload",
+            @"title" : @"禁用作品浏览记录上传",
+            @"subTitle" : @"浏览作品时不上传该作品浏览记录",
+            @"detail" : @"",
+            @"cellType" : @37,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : @"DYYYDisableFeedNowPlayingInfo",
+            @"title" : kDYYYFeedNowPlayingSettingTitle,
+            @"subTitle" : @"开启后禁止信息流视频播放信息显示在灵动岛",
+            @"detail" : @"",
+            @"cellType" : @37,
+            @"imageName" : kDYYYFeedNowPlayingSVGIconName}
+      ];
+
+      for (NSDictionary *dict in privacySettings) {
+          AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
+          if ([item.identifier isEqualToString:kDYYYFeedNowPlayingSettingIdentifier]) {
+              void (^originalSwitchChangedBlock)(void) = item.switchChangedBlock;
+              item.switchChangedBlock = ^{
+                if (originalSwitchChangedBlock) {
+                    originalSwitchChangedBlock();
+                }
+                DYYYApplyFeedNowPlayingSettingChange([DYYYSettingsHelper getUserDefaults:kDYYYFeedNowPlayingSettingIdentifier]);
+              };
+          }
+          [privacyItems addObject:item];
+      }
+
+      // 【二次确认】
       NSMutableArray<AWESettingItemModel *> *securityItems = [NSMutableArray array];
       NSArray *securitySettings = @[
           @{@"identifier" : @"DYYYFollowTips",
@@ -777,14 +2855,30 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
 
       // 创建并组织所有section
       NSMutableArray *sections = [NSMutableArray array];
-      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"外观设置" items:appearanceItems]];
-      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"视频播放" items:videoItems]];
-      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"杂项设置" items:miscellaneousItems]];
-      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"过滤与屏蔽" footerTitle:@"请不要同时开启过多过滤推荐项目，这会增大视频流加载延迟。" items:filterItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"播放控制" items:playbackItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"进度显示" items:progressItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"弹幕" items:danmuItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"属地标签" items:areaLabelItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"直播" items:liveItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"画质帧率" items:qualityItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"推荐过滤"
+                                                         footerTitle:@"请不要同时开启过多过滤推荐项目，这会增大视频流加载延迟。"
+                                                               items:filterItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"隐私" items:privacyItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"二次确认" items:securityItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"喜欢页保护"
+                                                     footerTitle:@"开启后喜欢列表显示原生风格空状态，摇动手机并输入密码解锁。首次设置密码会开启保护；离开喜欢页或退后台后重新锁定。密码不参与配置备份，清除设置不会重置密码。"
+                                                           items:[DYYYSettingsHelper likePrivacySettingItems]]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"广告与弹窗" items:adsItems]];
+
+      DYYYRegisterSearchSections(@"基本设置", sections);
+      if (DYYYBuildingSettingsSearchIndex) {
+          return;
+      }
 
       // 创建并推入二级设置页面
       AWESettingBaseViewController *subVC = [DYYYSettingsHelper createSubSettingsViewController:@"基本设置" sections:sections];
+      DYYYAttachSubSettingsSearchHeader(subVC, @"基本设置", sections);
       [rootVC.navigationController pushViewController:(UIViewController *)subVC animated:YES];
     };
     [mainItems addObject:basicSettingItem];
@@ -796,11 +2890,45 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
     uiSettingItem.type = 0;
     uiSettingItem.svgIconImageName = @"ic_ipadiphone_outlined";
     uiSettingItem.cellType = 26;
-    uiSettingItem.colorStyle = 0;
+    uiSettingItem.colorStyle = 2;
     uiSettingItem.isEnable = YES;
     uiSettingItem.cellTappedBlock = ^{
       // 创建界面设置二级界面的设置项
       NSMutableDictionary *cellTapHandlers = [NSMutableDictionary dictionary];
+
+      // 【首页布局】
+      NSMutableArray<AWESettingItemModel *> *homeLayoutItems = [NSMutableArray array];
+      NSArray *homeLayoutSettings = @[
+          @{
+              @"identifier" : @"DYYYVideoBGColor",
+              @"title" : @"视频背景颜色",
+              @"subTitle" : @"可以自定义部分横屏视频的背景颜色",
+              @"detail" : @"",
+              @"cellType" : @20,
+              @"imageName" : @"ic_tv_outlined_20"
+          },
+          @{@"identifier" : @"DYYYHideStatusbar",
+            @"title" : @"隐藏系统顶栏",
+            @"subTitle" : @"隐藏系统状态栏",
+            @"detail" : @"",
+            @"cellType" : @37,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : @"DYYYEnablePure",
+            @"title" : @"启用首页净化",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_rectangleportraittriangle_outlined_20"},
+          @{@"identifier" : @"DYYYEnableFullScreen",
+            @"title" : @"启用首页全屏",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_fullscreen_outlined_16"}
+      ];
+
+      for (NSDictionary *dict in homeLayoutSettings) {
+          AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
+          [homeLayoutItems addObject:item];
+      }
 
       // 【透明度设置】分类
       NSMutableArray<AWESettingItemModel *> *transparencyItems = [NSMutableArray array];
@@ -856,23 +2984,33 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"cellType" : @26,
             @"imageName" : @"ic_zoomin_outlined_20"},
           @{@"identifier" : @"DYYYNicknameScale",
-            @"title" : @"昵称文案缩放",
+            @"title" : @"昵称缩放控制",
+            @"detail" : @"不填默认",
+            @"cellType" : @26,
+            @"imageName" : @"ic_zoomin_outlined_20"},
+          @{@"identifier" : @"DYYYDescriptionScale",
+            @"title" : @"文案缩放控制",
+            @"detail" : @"不填默认",
+            @"cellType" : @26,
+            @"imageName" : @"ic_zoomin_outlined_20"},
+          @{@"identifier" : @"DYYYIPLabelScale",
+            @"title" : @"属地缩放控制",
             @"detail" : @"不填默认",
             @"cellType" : @26,
             @"imageName" : @"ic_zoomin_outlined_20"},
           @{@"identifier" : @"DYYYNicknameVerticalOffset",
-            @"title" : @"昵称下移距离",
-            @"detail" : @"不填默认",
+            @"title" : @"昵称Y轴距离",
+            @"detail" : @"上移为正下移为负",
             @"cellType" : @26,
             @"imageName" : @"ic_pensketch_outlined_20"},
           @{@"identifier" : @"DYYYDescriptionVerticalOffset",
-            @"title" : @"文案下移距离",
-            @"detail" : @"不填默认",
+            @"title" : @"文案Y轴距离",
+            @"detail" : @"上移为正下移为负",
             @"cellType" : @26,
             @"imageName" : @"ic_pensketch_outlined_20"},
           @{@"identifier" : @"DYYYIPLabelVerticalOffset",
-            @"title" : @"属地上移距离",
-            @"detail" : @"默认为 3",
+            @"title" : @"属地Y轴距离",
+            @"detail" : @"上移为正下移为负",
             @"cellType" : @26,
             @"imageName" : @"ic_pensketch_outlined_20"},
           @{@"identifier" : @"DYYYTabBarHeight",
@@ -917,7 +3055,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"imageName" : @"ic_user_outlined_20"},
           @{@"identifier" : @"DYYYCommentContent",
             @"title" : @"设置评论填充",
-            @"detail" : @"善语结善缘，恶言伤人心",
+            @"detail" : @"不填则默认",
             @"cellType" : @26,
             @"imageName" : @"ic_comment_outlined_20"},
       ];
@@ -958,13 +3096,20 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
       [iconItems addObject:[DYYYSettingsHelper createIconCustomizationItemWithIdentifier:@"DYYYIconPlus" title:@"拍摄的图标" svgIcon:@"ic_camera_outlined" saveFile:@"tab_plus.png"]];
 
       NSMutableArray *sections = [NSMutableArray array];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"首页布局" items:homeLayoutItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"透明度设置" items:transparencyItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"缩放与大小" items:scaleItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"标题自定义" items:titleItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"图标自定义" items:iconItems]];
       // 创建并组织所有section
+      DYYYRegisterSearchSections(@"界面设置", sections);
+      if (DYYYBuildingSettingsSearchIndex) {
+          return;
+      }
+
       // 创建并推入二级设置页面
       AWESettingBaseViewController *subVC = [DYYYSettingsHelper createSubSettingsViewController:@"界面设置" sections:sections];
+      DYYYAttachSubSettingsSearchHeader(subVC, @"界面设置", sections);
       [rootVC.navigationController pushViewController:(UIViewController *)subVC animated:YES];
     };
 
@@ -977,7 +3122,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
     hideSettingItem.type = 0;
     hideSettingItem.svgIconImageName = @"ic_eyeslash_outlined_20";
     hideSettingItem.cellType = 26;
-    hideSettingItem.colorStyle = 0;
+    hideSettingItem.colorStyle = 2;
     hideSettingItem.isEnable = YES;
     hideSettingItem.cellTappedBlock = ^{
       // 创建隐藏设置二级界面的设置项
@@ -1126,12 +3271,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"cellType" : @6,
             @"imageName" : @"ic_eyeslash_outlined_16"},
           @{@"identifier" : @"DYYYHideAvatarButton",
-            @"title" : @"隐藏头像按钮",
-            @"detail" : @"",
-            @"cellType" : @6,
-            @"imageName" : @"ic_eyeslash_outlined_16"},
-          @{@"identifier" : @"DYYYHideAvatarRing",
-            @"title" : @"隐藏头像光圈",
+            @"title" : @"隐藏头像及周边",
             @"detail" : @"",
             @"cellType" : @6,
             @"imageName" : @"ic_eyeslash_outlined_16"},
@@ -1142,6 +3282,11 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"imageName" : @"ic_eyeslash_outlined_16"},
           @{@"identifier" : @"DYYYHideMusicButton",
             @"title" : @"隐藏音乐按钮",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : kDYYYHideRecommendAppDownloadSettingIdentifier,
+            @"title" : @"隐藏推荐应用下载",
             @"detail" : @"",
             @"cellType" : @6,
             @"imageName" : @"ic_eyeslash_outlined_16"},
@@ -1251,6 +3396,21 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"imageName" : @"ic_eyeslash_outlined_16"},
           @{@"identifier" : @"DYYYHidePostView",
             @"title" : @"隐藏我的页发作品",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : @"DYYYHideMessageTabStarMall",
+            @"title" : @"隐藏消息星光商城",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : @"DYYYHideMineAvatarPlus",
+            @"title" : @"隐藏我的页头像加号",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : @"DYYYHideMineAICreation",
+            @"title" : @"隐藏我的创作AI作品",
             @"detail" : @"",
             @"cellType" : @6,
             @"imageName" : @"ic_eyeslash_outlined_16"}
@@ -1377,7 +3537,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               @"identifier" : @"DYYYHideFeedAnchorContainer",
               @"title" : @"隐藏视频锚点",
               @"detail" : @"",
-              @"cellType" : @37,
+              @"cellType" : @6,
               @"imageName" : @"ic_eyeslash_outlined_16"
           },
           @{@"identifier" : @"DYYYHideLocation",
@@ -1582,6 +3742,14 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
             @"detail" : @"",
             @"cellType" : @6,
             @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{
+              @"identifier" : @"DYYYHideLiveRoomShareCompanion",
+              @"title" : @"隐藏直播伴侣提示",
+              @"subTitle" : @"隐藏直播间分享面板中的直播伴侣下载提示",
+              @"detail" : @"",
+              @"cellType" : @37,
+              @"imageName" : @"ic_eyeslash_outlined_16"
+          },
           @{@"identifier" : @"DYYYHideLiveDiscovery",
             @"title" : @"隐藏直播发现",
             @"detail" : @"",
@@ -1688,7 +3856,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               @"identifier" : @"DYYYHidePanelItems",
               @"title" : @"隐藏面板项目",
               @"subTitle" : @"输入要隐藏的按钮名称，多个用逗号分隔\n支持精确匹配和部分匹配，不区分大小写\n例如：举报,倍速,投屏,弹幕",
-              @"detail" : @"逗号分隔按钮名",
+              @"detail" : @"",
               @"cellType" : @20,
               @"imageName" : @"ic_eyeslash_outlined_16"
           }
@@ -1700,18 +3868,18 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
           // 特殊处理隐藏面板项目选项（文本输入）
           if ([item.identifier isEqualToString:@"DYYYHidePanelItems"]) {
               NSString *savedItems = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYHidePanelItems"];
-              item.detail = savedItems.length > 0 ? savedItems : @"逗号分隔按钮名";
-
+              item.detail = savedItems.length > 0 ? savedItems : @"";
               item.cellTappedBlock = ^{
-                if (!item.isEnable) return;
-                NSString *defaultText = [item.detail isEqualToString:@"逗号分隔按钮名"] ? @"" : item.detail;
+                if (!item.isEnable)
+                    return;
+                NSString *defaultText = item.detail ?: @"";
                 [DYYYSettingsHelper showTextInputAlert:@"隐藏面板项目"
                                            defaultText:defaultText
                                            placeholder:@"例如：举报,倍速,投屏,弹幕"
                                              onConfirm:^(NSString *text) {
-                                               NSString *trimmedText = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                                               NSString *trimmedText = [text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
                                                [DYYYSettingsHelper setUserDefaults:trimmedText forKey:@"DYYYHidePanelItems"];
-                                               item.detail = trimmedText.length > 0 ? trimmedText : @"逗号分隔按钮名";
+                                               item.detail = trimmedText ?: @"";
                                                [item refreshCell];
                                              }
                                               onCancel:nil];
@@ -1726,6 +3894,11 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
       NSArray *commentpanelSettings = @[
           @{@"identifier" : @"DYYYHideCommentShareToFriends",
             @"title" : @"隐藏评论分享",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : @"DYYYHideCommentLongPressFavorite",
+            @"title" : @"隐藏评论收藏",
             @"detail" : @"",
             @"cellType" : @6,
             @"imageName" : @"ic_eyeslash_outlined_16"},
@@ -1779,8 +3952,14 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"直播间界面" items:livestreamItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"隐藏面板功能" footerTitle:@"隐藏视频长按面板中的功能" items:modernpanels]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"隐藏长按评论功能" footerTitle:@"隐藏评论长按面板中的功能" items:commentpanel]];
+      DYYYRegisterSearchSections(@"隐藏设置", sections);
+      if (DYYYBuildingSettingsSearchIndex) {
+          return;
+      }
+
       // 创建并推入二级设置页面
       AWESettingBaseViewController *subVC = [DYYYSettingsHelper createSubSettingsViewController:@"隐藏设置" sections:sections];
+      DYYYAttachSubSettingsSearchHeader(subVC, @"隐藏设置", sections);
       [rootVC.navigationController pushViewController:(UIViewController *)subVC animated:YES];
     };
     [mainItems addObject:hideSettingItem];
@@ -1792,7 +3971,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
     removeSettingItem.type = 0;
     removeSettingItem.svgIconImageName = @"ic_doublearrowup_outlined_20";
     removeSettingItem.cellType = 26;
-    removeSettingItem.colorStyle = 0;
+    removeSettingItem.colorStyle = 2;
     removeSettingItem.isEnable = YES;
     removeSettingItem.cellTappedBlock = ^{
       // 创建顶栏移除二级界面的设置项
@@ -1884,7 +4063,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
           item.type = 1000;
           item.svgIconImageName = dict[@"imageName"];
           item.cellType = [dict[@"cellType"] integerValue];
-          item.colorStyle = 0;
+          item.colorStyle = 2;
           item.isEnable = YES;
           item.isSwitchOn = [DYYYSettingsHelper getUserDefaults:item.identifier];
           __weak AWESettingItemModel *weakItem = item;
@@ -1902,7 +4081,13 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
       NSMutableArray *sections = [NSMutableArray array];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"顶栏选项" items:removeSettingsItems]];
 
+      DYYYRegisterSearchSections(@"顶栏移除", sections);
+      if (DYYYBuildingSettingsSearchIndex) {
+          return;
+      }
+
       AWESettingBaseViewController *subVC = [DYYYSettingsHelper createSubSettingsViewController:@"顶栏移除" sections:sections];
+      DYYYAttachSubSettingsSearchHeader(subVC, @"顶栏移除", sections);
       [rootVC.navigationController pushViewController:(UIViewController *)subVC animated:YES];
     };
     [mainItems addObject:removeSettingItem];
@@ -1914,11 +4099,23 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
     enhanceSettingItem.type = 0;
     enhanceSettingItem.svgIconImageName = @"ic_squaresplit_outlined_20";
     enhanceSettingItem.cellType = 26;
-    enhanceSettingItem.colorStyle = 0;
+    enhanceSettingItem.colorStyle = 2;
     enhanceSettingItem.isEnable = YES;
     enhanceSettingItem.cellTappedBlock = ^{
       // 创建增强设置二级界面的设置项
       NSMutableDictionary *cellTapHandlers = [NSMutableDictionary dictionary];
+
+      // 【账号与登录】
+      NSMutableArray<AWESettingItemModel *> *accountItems = [NSMutableArray array];
+      AWESettingItemModel *loginBypassItem = [DYYYSettingsHelper createSettingItem:@{
+          @"identifier" : @"DYYYEnableLoginBypass",
+          @"title" : @"启用绕登录",
+          @"subTitle" : @"开启后可绕过登录时低版本/风险提示，登录成功后自动关闭",
+          @"detail" : @"",
+          @"cellType" : @37,
+          @"imageName" : kDYYYLoginBypassSVGIconName
+      }];
+      [accountItems addObject:loginBypassItem];
 
       // 【长按面板设置】分类
       NSMutableArray<AWESettingItemModel *> *longPressItems = [NSMutableArray array];
@@ -1996,7 +4193,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
           @{
               @"identifier" : @"DYYYInterfaceDownload",
               @"title" : @"接口解析保存媒体",
-              @"subTitle" : @"填入自定义的解析接口，标准格式请查阅\nGithub 仓库内的 README 文件",
+              @"subTitle" : @"填入自定义的解析接口，标准格式请查阅 Github 仓库内的 README 文件",
               @"detail" : @"",
               @"cellType" : @20,
               @"imageName" : @"ic_cloudarrowdown_outlined_20"
@@ -2075,23 +4272,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               // 获取已保存的接口URL
               NSString *savedURL = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYInterfaceDownload"];
               item.detail = savedURL.length > 0 ? savedURL : @"不填关闭";
-
-              item.cellTappedBlock = ^{
-                NSString *defaultText = [item.detail isEqualToString:@"不填关闭"] ? @"" : item.detail;
-                [DYYYSettingsHelper showTextInputAlert:@"设置媒体解析接口"
-                                           defaultText:defaultText
-                                           placeholder:@"解析接口以url=结尾"
-                                             onConfirm:^(NSString *text) {
-                                               // 保存用户输入的接口URL
-                                               NSString *trimmedText = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                                               [DYYYSettingsHelper setUserDefaults:trimmedText forKey:@"DYYYInterfaceDownload"];
-
-                                               item.detail = trimmedText.length > 0 ? trimmedText : @"不填关闭";
-
-                                               [item refreshCell];
-                                             }
-                                              onCancel:nil];
-              };
+              item.cellTappedBlock = nil;
           }
           [downloadItems addObject:item];
       }
@@ -2344,21 +4525,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               remoteURLItemRef = item;
               NSString *savedURL = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYRemoteConfigURL"];
               item.detail = savedURL.length > 0 ? savedURL : DYYY_DEFAULT_ABTEST_URL;
-              item.cellTappedBlock = ^{
-                if (!item.isEnable)
-                    return;
-                NSString *defaultText = item.detail;
-                [DYYYSettingsHelper showTextInputAlert:@"设置远程配置地址"
-                                           defaultText:defaultText
-                                           placeholder:@"JSON URL"
-                                             onConfirm:^(NSString *text) {
-                                               NSString *trimmedText = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                                               [DYYYSettingsHelper setUserDefaults:trimmedText forKey:@"DYYYRemoteConfigURL"];
-                                               item.detail = trimmedText.length > 0 ? trimmedText : DYYY_DEFAULT_ABTEST_URL;
-                                               [item refreshCell];
-                                             }
-                                              onCancel:nil];
-              };
+              item.cellTappedBlock = nil;
           } else if ([item.identifier isEqualToString:@"DYYYCheckUpdate"]) {
               checkUpdateItemRef = item;
               item.cellTappedBlock = ^{
@@ -2793,6 +4960,14 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               @"imageName" : @"ic_dansquare_outlined_20"
           },
           @{
+              @"identifier" : kDYYYCommentPausePlaybackSettingIdentifier,
+              @"title" : @"查看评论暂停播放",
+              @"subTitle" : @"打开评论区时暂停当前播放",
+              @"detail" : @"",
+              @"cellType" : @37,
+              @"imageName" : kDYYYCommentPausePlaybackSVGIconName
+          },
+          @{
               @"identifier" : @"DYYYEnableDoubleTapMenu",
               @"title" : @"启用双击打开菜单",
               @"subTitle" : @"与“双击打开评论”互斥，下方自定义",
@@ -2911,11 +5086,18 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"长按面板设置" items:longPressItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"媒体保存" items:downloadItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"交互增强" items:interactionItems]];
+      [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"账号与登录" items:accountItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"ABTest"
                                                          footerTitle:@"允许用户导出或导入抖音的 ABTest 配置。远程配置由 Nathalie 维护，在应用启动时自动更新远程配置。"
                                                                items:hotUpdateItems]];
+      DYYYRegisterSearchSections(@"增强设置", sections);
+      if (DYYYBuildingSettingsSearchIndex) {
+          return;
+      }
+
       // 创建并推入二级设置页面
       AWESettingBaseViewController *subVC = [DYYYSettingsHelper createSubSettingsViewController:@"增强设置" sections:sections];
+      DYYYAttachSubSettingsSearchHeader(subVC, @"增强设置", sections);
       [rootVC.navigationController pushViewController:(UIViewController *)subVC animated:YES];
     };
 
@@ -2928,7 +5110,7 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
     floatButtonSettingItem.type = 0;
     floatButtonSettingItem.svgIconImageName = @"ic_gongchuang_outlined_20";
     floatButtonSettingItem.cellType = 26;
-    floatButtonSettingItem.colorStyle = 0;
+    floatButtonSettingItem.colorStyle = 2;
     floatButtonSettingItem.isEnable = YES;
     floatButtonSettingItem.cellTappedBlock = ^{
       // 创建悬浮按钮设置二级界面的设置项
@@ -2936,7 +5118,6 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
       // 快捷倍速section
       NSMutableArray<AWESettingItemModel *> *speedButtonItems = [NSMutableArray array];
 
-      // 倍速按钮
       AWESettingItemModel *enableSpeedButton = [DYYYSettingsHelper
           createSettingItem:
               @{@"identifier" : @"DYYYEnableFloatSpeedButton",
@@ -2946,38 +5127,55 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
                 @"imageName" : @"ic_xspeed_outlined"}];
       [speedButtonItems addObject:enableSpeedButton];
 
-      // 添加倍速设置项
+      AWESettingItemModel *speedStickToEdgeItem = [DYYYSettingsHelper
+          createSettingItem:@{
+              @"identifier" : kDYYYSpeedButtonStickToEdgeSettingIdentifier,
+              @"title" : kDYYYStickToEdgeSettingTitle,
+              @"detail" : @"",
+              @"cellType" : @6,
+              @"imageName" : kDYYYStickToEdgeSVGIconName
+          }];
+      [speedButtonItems addObject:speedStickToEdgeItem];
+
+      AWESettingItemModel *speedResetPositionItem = [[%c(AWESettingItemModel) alloc] init];
+      speedResetPositionItem.identifier = kDYYYSpeedButtonResetPositionSettingIdentifier;
+      speedResetPositionItem.title = kDYYYResetButtonPositionSettingTitle;
+      speedResetPositionItem.detail = @"";
+      speedResetPositionItem.type = 0;
+      speedResetPositionItem.svgIconImageName = @"ic_switch_outlined";
+      speedResetPositionItem.cellType = 26;
+      speedResetPositionItem.colorStyle = 2;
+      speedResetPositionItem.isEnable = YES;
+      speedResetPositionItem.cellTappedBlock = ^{
+        if (![DYYYSettingsHelper getUserDefaults:@"DYYYEnableFloatSpeedButton"]) {
+            return;
+        }
+        if (speedButton) {
+            [speedButton resetToDefaultPosition];
+        } else {
+            NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+            [defaults removeObjectForKey:@"DYYYSpeedButtonCenterXPercent"];
+            [defaults removeObjectForKey:@"DYYYSpeedButtonCenterYPercent"];
+        }
+        [DYYYUtils showToast:@"已重置按钮位置"];
+      };
+      [speedButtonItems addObject:speedResetPositionItem];
+
       AWESettingItemModel *speedSettingsItem = [[%c(AWESettingItemModel) alloc] init];
       speedSettingsItem.identifier = @"DYYYSpeedSettings";
       speedSettingsItem.title = @"快捷倍速数值设置";
       speedSettingsItem.type = 0;
       speedSettingsItem.svgIconImageName = @"ic_speed_outlined_20";
       speedSettingsItem.cellType = 26;
-      speedSettingsItem.colorStyle = 0;
+      speedSettingsItem.colorStyle = 2;
       speedSettingsItem.isEnable = YES;
-
-      // 获取已保存的倍速数值设置
       NSString *savedSpeedSettings = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYSpeedSettings"];
-      // 如果没有设置过，使用默认值
       if (!savedSpeedSettings || savedSpeedSettings.length == 0) {
           savedSpeedSettings = @"1.0,1.25,1.5,2.0";
       }
-      speedSettingsItem.detail = [NSString stringWithFormat:@"%@", savedSpeedSettings];
-      speedSettingsItem.cellTappedBlock = ^{
-        [DYYYSettingsHelper showTextInputAlert:@"设置快捷倍速数值"
-                                   defaultText:speedSettingsItem.detail
-                                   placeholder:@"使用半角逗号(,)分隔倍速值"
-                                     onConfirm:^(NSString *text) {
-                                       // 保存用户输入的倍速值
-                                       NSString *trimmedText = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                                       [[NSUserDefaults standardUserDefaults] setObject:trimmedText forKey:@"DYYYSpeedSettings"];
-speedSettingsItem.detail = trimmedText;
-                                       [speedSettingsItem refreshCell];
-                                     }
-                                      onCancel:nil];
-      };
+      speedSettingsItem.detail = savedSpeedSettings;
+      speedSettingsItem.cellTappedBlock = nil;
 
-      // 添加自动恢复倍速设置项
       AWESettingItemModel *autoRestoreSpeedItem = [[%c(AWESettingItemModel) alloc] init];
       autoRestoreSpeedItem.identifier = @"DYYYAutoRestoreSpeed";
       autoRestoreSpeedItem.title = @"自动恢复默认倍速";
@@ -2985,14 +5183,14 @@ speedSettingsItem.detail = trimmedText;
       autoRestoreSpeedItem.type = 1000;
       autoRestoreSpeedItem.svgIconImageName = @"ic_switch_outlined";
       autoRestoreSpeedItem.cellType = 6;
-      autoRestoreSpeedItem.colorStyle = 0;
+      autoRestoreSpeedItem.colorStyle = 2;
       autoRestoreSpeedItem.isEnable = YES;
       autoRestoreSpeedItem.isSwitchOn = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYAutoRestoreSpeed"];
       autoRestoreSpeedItem.switchChangedBlock = ^{
         BOOL newValue = !autoRestoreSpeedItem.isSwitchOn;
         autoRestoreSpeedItem.isSwitchOn = newValue;
         [[NSUserDefaults standardUserDefaults] setBool:newValue forKey:@"DYYYAutoRestoreSpeed"];
-};
+      };
       [speedButtonItems addObject:autoRestoreSpeedItem];
 
       AWESettingItemModel *showXItem = [[%c(AWESettingItemModel) alloc] init];
@@ -3002,47 +5200,56 @@ speedSettingsItem.detail = trimmedText;
       showXItem.type = 1000;
       showXItem.svgIconImageName = @"ic_pensketch_outlined_20";
       showXItem.cellType = 6;
-      showXItem.colorStyle = 0;
+      showXItem.colorStyle = 2;
       showXItem.isEnable = YES;
       showXItem.isSwitchOn = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYSpeedButtonShowX"];
       showXItem.switchChangedBlock = ^{
         BOOL newValue = !showXItem.isSwitchOn;
         showXItem.isSwitchOn = newValue;
         [[NSUserDefaults standardUserDefaults] setBool:newValue forKey:@"DYYYSpeedButtonShowX"];
-};
+        showSpeedX = newValue;
+        updateSpeedButtonUI();
+      };
       [speedButtonItems addObject:showXItem];
-      // 添加按钮大小配置项
+
+      AWESettingItemModel *autoHideSpeedButtonItem = [DYYYSettingsHelper
+          createSettingItem:@{
+              @"identifier" : @"DYYYAutoHideSpeedButton",
+              @"title" : @"自动隐藏快捷倍速按钮",
+              @"detail" : @"",
+              @"cellType" : @6,
+              @"imageName" : @"ic_eyeslash_outlined_16"
+          }];
+      [speedButtonItems addObject:autoHideSpeedButtonItem];
+
+      AWESettingItemModel *autoHideSpeedTimeItem = [[%c(AWESettingItemModel) alloc] init];
+      autoHideSpeedTimeItem.identifier = @"DYYYAutoHideSpeedButtonTime";
+      autoHideSpeedTimeItem.title = @"隐藏快捷倍速按钮时间";
+      CGFloat currentAutoHideTime = [[NSUserDefaults standardUserDefaults] floatForKey:@"DYYYAutoHideSpeedButtonTime"];
+      if (currentAutoHideTime <= 0.0) {
+          currentAutoHideTime = 30.0;
+      }
+      autoHideSpeedTimeItem.detail = [NSString stringWithFormat:@"%.0f", currentAutoHideTime];
+      autoHideSpeedTimeItem.type = 0;
+      autoHideSpeedTimeItem.svgIconImageName = @"ic_speed_outlined_20";
+      autoHideSpeedTimeItem.cellType = 26;
+      autoHideSpeedTimeItem.colorStyle = 2;
+      autoHideSpeedTimeItem.isEnable = YES;
+      autoHideSpeedTimeItem.cellTappedBlock = nil;
+      [speedButtonItems addObject:autoHideSpeedTimeItem];
+
       AWESettingItemModel *buttonSizeItem = [[%c(AWESettingItemModel) alloc] init];
       buttonSizeItem.identifier = @"DYYYSpeedButtonSize";
       buttonSizeItem.title = @"快捷倍速按钮大小";
-      // 获取当前的按钮大小，如果没有设置则默认为32
-      CGFloat currentButtonSize = [[NSUserDefaults standardUserDefaults] floatForKey:@"DYYYSpeedButtonSize"] ?: 32;
+      CGFloat currentButtonSize = [[NSUserDefaults standardUserDefaults] floatForKey:@"DYYYSpeedButtonSize"] ?: 35;
       buttonSizeItem.detail = [NSString stringWithFormat:@"%.0f", currentButtonSize];
       buttonSizeItem.type = 0;
       buttonSizeItem.svgIconImageName = @"ic_zoomin_outlined_20";
       buttonSizeItem.cellType = 26;
-      buttonSizeItem.colorStyle = 0;
+      buttonSizeItem.colorStyle = 2;
       buttonSizeItem.isEnable = YES;
-      buttonSizeItem.cellTappedBlock = ^{
-        NSString *currentValue = [NSString stringWithFormat:@"%.0f", currentButtonSize];
-        [DYYYSettingsHelper showTextInputAlert:@"设置按钮大小"
-                                   defaultText:currentValue
-                                   placeholder:@"请输入20-60之间的数值"
-                                     onConfirm:^(NSString *text) {
-                                       NSInteger size = [text integerValue];
-                                       if (size >= 20 && size <= 60) {
-                                           [[NSUserDefaults standardUserDefaults] setFloat:size forKey:@"DYYYSpeedButtonSize"];
-                                           buttonSizeItem.detail = [NSString stringWithFormat:@"%.0f", (CGFloat)size];
-                                           [buttonSizeItem refreshCell];
-                                       } else {
-                                           [DYYYUtils showToast:@"请输入20-60之间的有效数值"];
-                                       }
-                                     }
-                                      onCancel:nil];
-      };
-
+      buttonSizeItem.cellTappedBlock = nil;
       [speedButtonItems addObject:buttonSizeItem];
-
       [speedButtonItems addObject:speedSettingsItem];
 
       NSMutableArray<AWESettingItemModel *> *speedDependentItems = [NSMutableArray array];
@@ -3057,13 +5264,56 @@ speedSettingsItem.detail = trimmedText;
             [item refreshCell];
         }
       };
-
       refreshSpeedDependentItems();
+
+      void (^originalAutoHideSwitchChangedBlock)(void) = autoHideSpeedButtonItem.switchChangedBlock;
+      autoHideSpeedButtonItem.switchChangedBlock = ^{
+        if (originalAutoHideSwitchChangedBlock) {
+            originalAutoHideSwitchChangedBlock();
+        }
+        BOOL autoHideEnabled = [NSUserDefaults.standardUserDefaults boolForKey:@"DYYYAutoHideSpeedButton"];
+        if (speedButton) {
+            if (!autoHideEnabled && speedButton.isEdgeHidden) {
+                [speedButton dyyy_restoreFromEdgeHidden];
+            } else {
+                [speedButton resetFadeTimer];
+            }
+        }
+        refreshSpeedDependentItems();
+      };
+
+      void (^originalSpeedStickSwitchChangedBlock)(void) = speedStickToEdgeItem.switchChangedBlock;
+      speedStickToEdgeItem.switchChangedBlock = ^{
+        if (originalSpeedStickSwitchChangedBlock) {
+            originalSpeedStickSwitchChangedBlock();
+        }
+        if (speedButton) {
+            if (speedButton.isEdgeHidden && !speedButton.dyyyEdgeHiddenByClearMode) {
+                [speedButton dyyy_restoreFromEdgeHidden];
+            }
+            [speedButton loadSavedPosition];
+        }
+        refreshSpeedDependentItems();
+      };
 
       void (^originalSpeedSwitchChangedBlock)(void) = enableSpeedButton.switchChangedBlock;
       enableSpeedButton.switchChangedBlock = ^{
         if (originalSpeedSwitchChangedBlock) {
             originalSpeedSwitchChangedBlock();
+        }
+        BOOL newEnabled = [NSUserDefaults.standardUserDefaults boolForKey:@"DYYYEnableFloatSpeedButton"];
+        if (!newEnabled) {
+            hideSpeedButton();
+        }
+        isFloatSpeedButtonEnabled = newEnabled;
+        if (newEnabled) {
+            showSpeedButton();
+            DYYYRefreshFloatSpeedButton();
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+              DYYYRefreshFloatSpeedButton();
+            });
+        } else if (speedButton) {
+            speedButton.hidden = YES;
         }
         refreshSpeedDependentItems();
       };
@@ -3081,6 +5331,42 @@ speedSettingsItem.detail = trimmedText;
                 @"imageName" : @"ic_eyeslash_outlined_16"}];
       [clearButtonItems addObject:enableClearButton];
 
+      AWESettingItemModel *clearStickToEdgeItem = [DYYYSettingsHelper
+          createSettingItem:@{
+              @"identifier" : kDYYYClearButtonStickToEdgeSettingIdentifier,
+              @"title" : kDYYYStickToEdgeSettingTitle,
+              @"detail" : @"",
+              @"cellType" : @6,
+              @"imageName" : kDYYYStickToEdgeSVGIconName
+          }];
+      [clearButtonItems addObject:clearStickToEdgeItem];
+
+      AWESettingItemModel *clearResetPositionItem = [[%c(AWESettingItemModel) alloc] init];
+      clearResetPositionItem.identifier = kDYYYClearButtonResetPositionSettingIdentifier;
+      clearResetPositionItem.title = kDYYYResetButtonPositionSettingTitle;
+      clearResetPositionItem.detail = @"";
+      clearResetPositionItem.type = 0;
+      clearResetPositionItem.svgIconImageName = @"ic_switch_outlined";
+      clearResetPositionItem.cellType = 26;
+      clearResetPositionItem.colorStyle = 2;
+      clearResetPositionItem.isEnable = YES;
+      clearResetPositionItem.cellTappedBlock = ^{
+        if (![DYYYSettingsHelper getUserDefaults:@"DYYYEnableFloatClearButton"]) {
+            return;
+        }
+        if (hideButton) {
+            [hideButton resetToDefaultPosition];
+        } else {
+            NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+            [defaults removeObjectForKey:@"DYYYHideButtonCenterXPercent"];
+            [defaults removeObjectForKey:@"DYYYHideButtonCenterYPercent"];
+        }
+        [DYYYUtils showToast:@"已重置按钮位置"];
+      };
+      [clearButtonItems addObject:clearResetPositionItem];
+
+      // 添加清屏按钮大小配置项
+
       // 添加清屏按钮大小配置项
       AWESettingItemModel *clearButtonSizeItem = [[%c(AWESettingItemModel) alloc] init];
       clearButtonSizeItem.identifier = @"DYYYEnableFloatClearButtonSize";
@@ -3091,26 +5377,9 @@ speedSettingsItem.detail = trimmedText;
       clearButtonSizeItem.type = 0;
       clearButtonSizeItem.svgIconImageName = @"ic_zoomin_outlined_20";
       clearButtonSizeItem.cellType = 26;
-      clearButtonSizeItem.colorStyle = 0;
+      clearButtonSizeItem.colorStyle = 2;
       clearButtonSizeItem.isEnable = YES;
-      clearButtonSizeItem.cellTappedBlock = ^{
-        NSString *currentValue = [NSString stringWithFormat:@"%.0f", currentClearButtonSize];
-        [DYYYSettingsHelper showTextInputAlert:@"设置清屏按钮大小"
-                                   defaultText:currentValue
-                                   placeholder:@"请输入20-60之间的数值"
-                                     onConfirm:^(NSString *text) {
-                                       NSInteger size = [text integerValue];
-                                       // 确保输入值在有效范围内
-                                       if (size >= 20 && size <= 60) {
-                                           [[NSUserDefaults standardUserDefaults] setFloat:size forKey:@"DYYYEnableFloatClearButtonSize"];
-                                           clearButtonSizeItem.detail = [NSString stringWithFormat:@"%.0f", (CGFloat)size];
-                                           [clearButtonSizeItem refreshCell];
-                                       } else {
-                                           [DYYYUtils showToast:@"请输入20-60之间的有效数值"];
-                                       }
-                                     }
-                                      onCancel:nil];
-      };
+      clearButtonSizeItem.cellTappedBlock = nil;
       [clearButtonItems addObject:clearButtonSizeItem];
 
       // 添加清屏按钮自定义图标选项
@@ -3175,7 +5444,7 @@ speedSettingsItem.detail = trimmedText;
                 @"cellType" : @6,
                 @"imageName" : @"ic_eyeslash_outlined_16"}];
       [clearButtonItems addObject:hideTabButton];
-      AWESettingItemModel *hideSpeedButton = [DYYYSettingsHelper createSettingItem:@{
+      AWESettingItemModel *hideSpeedButtonItem = [DYYYSettingsHelper createSettingItem:@{
           @"identifier" : @"DYYYHideSpeed",
           @"title" : @"清屏隐藏倍速",
           @"subTitle" : @"清屏状态下隐藏DYYY的倍速按钮",
@@ -3183,14 +5452,62 @@ speedSettingsItem.detail = trimmedText;
           @"cellType" : @37,
           @"imageName" : @"ic_eyeslash_outlined_16"
       }];
-      [clearButtonItems addObject:hideSpeedButton];
-      // 获取清屏按钮的当前开关状态
-      BOOL isEnabled = [DYYYSettingsHelper getUserDefaults:@"DYYYEnableFloatClearButton"];
+      [clearButtonItems addObject:hideSpeedButtonItem];
+      // 清屏后隐藏清屏按钮自身（仍可点击恢复）
+      AWESettingItemModel *hideClearButtonOnTap = [DYYYSettingsHelper createSettingItem:@{
+          @"identifier" : @"DYYYHideClearButtonOnTap",
+          @"title" : @"清屏隐藏清屏按钮",
+          @"subTitle" : @"清屏后隐藏清屏按钮自身，原位置仍可点击恢复",
+          @"detail" : @"",
+          @"cellType" : @37,
+          @"imageName" : @"ic_eyeslash_outlined_16"
+      }];
+      [clearButtonItems addObject:hideClearButtonOnTap];
+      AWESettingItemModel *hidePauseVideoIcon = [DYYYSettingsHelper createSettingItem:@{
+          @"identifier" : @"DYYYHidePauseVideoIcon",
+          @"title" : @"清屏隐藏暂停图标",
+          @"subTitle" : @"清屏状态下隐藏视频中央的播放/暂停图标",
+          @"detail" : @"",
+          @"cellType" : @37,
+          @"imageName" : @"ic_eyeslash_outlined_16"
+      }];
+      [clearButtonItems addObject:hidePauseVideoIcon];
+      AWESettingItemModel *hideStatusBarOnClear = [DYYYSettingsHelper createSettingItem:@{
+          @"identifier" : @"DYYYHideStatusBarOnClear",
+          @"title" : @"清屏隐藏状态栏",
+          @"subTitle" : @"清屏状态下隐藏系统顶部状态栏",
+          @"detail" : @"",
+          @"cellType" : @37,
+          @"imageName" : @"ic_eyeslash_outlined_16"
+      }];
+      [clearButtonItems addObject:hideStatusBarOnClear];
+      NSMutableArray<AWESettingItemModel *> *clearDependentItems = [NSMutableArray array];
       for (AWESettingItemModel *item in clearButtonItems) {
-          if (item == enableClearButton) {
+          if (item != enableClearButton) {
+              [clearDependentItems addObject:item];
+          }
+      }
+      void (^refreshClearDependentItems)(void) = ^{
+        for (AWESettingItemModel *item in clearDependentItems) {
+            [DYYYSettingsHelper applyDependencyRulesForItem:item];
+            [item refreshCell];
+        }
+      };
+
+      refreshClearDependentItems();
+
+      for (AWESettingItemModel *item in clearButtonItems) {
+          void (^originalClearSwitchChangedBlock)(void) = item.switchChangedBlock;
+          if (!originalClearSwitchChangedBlock) {
               continue;
           }
-          item.isEnable = isEnabled;
+          item.switchChangedBlock = ^{
+            originalClearSwitchChangedBlock();
+            reloadClearButtonConfiguration();
+            if (item == enableClearButton) {
+                refreshClearDependentItems();
+            }
+          };
       }
 
       // 创建并组织所有section
@@ -3198,8 +5515,14 @@ speedSettingsItem.detail = trimmedText;
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"快捷倍速" items:speedButtonItems]];
       [sections addObject:[DYYYSettingsHelper createSectionWithTitle:@"一键清屏" items:clearButtonItems]];
 
+      DYYYRegisterSearchSections(@"悬浮按钮", sections);
+      if (DYYYBuildingSettingsSearchIndex) {
+          return;
+      }
+
       // 创建并推入二级设置页面
       AWESettingBaseViewController *subVC = [DYYYSettingsHelper createSubSettingsViewController:@"悬浮按钮" sections:sections];
+      DYYYAttachSubSettingsSearchHeader(subVC, @"悬浮按钮", sections);
       [rootVC.navigationController pushViewController:(UIViewController *)subVC animated:YES];
     };
     [mainItems addObject:floatButtonSettingItem];
@@ -3218,7 +5541,7 @@ speedSettingsItem.detail = trimmedText;
     backupItem.type = 0;
     backupItem.svgIconImageName = @"ic_memorycard_outlined_20";
     backupItem.cellType = 26;
-    backupItem.colorStyle = 0;
+    backupItem.colorStyle = 2;
     backupItem.isEnable = YES;
     backupItem.cellTappedBlock = ^{
       // 获取所有以DYYY开头的NSUserDefaults键值
@@ -3235,9 +5558,7 @@ speedSettingsItem.detail = trimmedText;
       // 查找并添加图标文件
       NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
       NSString *dyyyFolderPath = [documentsPath stringByAppendingPathComponent:@"DYYY"];
-
       NSArray *iconFileNames = @[ @"like_before.png", @"like_after.png", @"comment.png", @"unfavorite.png", @"favorite.png", @"share.png", @"tab_plus.png", @"qingping.gif" ];
-
       NSMutableDictionary *iconBase64Dict = [NSMutableDictionary dictionary];
 
       for (NSString *iconFileName in iconFileNames) {
@@ -3261,7 +5582,6 @@ speedSettingsItem.detail = trimmedText;
       NSError *error;
       id jsonObject = DYYYJSONSafeObject(dyyySettings);
       NSData *sortedJsonData = [NSJSONSerialization dataWithJSONObject:jsonObject options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys error:&error];
-
       if (error) {
           [DYYYUtils showToast:@"备份失败：无法序列化设置数据"];
           return;
@@ -3272,9 +5592,7 @@ speedSettingsItem.detail = trimmedText;
       NSString *timestamp = [formatter stringFromDate:[NSDate date]];
       NSString *backupFileName = [NSString stringWithFormat:@"DYYY_Backup_%@.json", timestamp];
       NSString *tempFilePath = [DYYYUtils cachePathForFilename:backupFileName];
-
       BOOL success = [sortedJsonData writeToFile:tempFilePath atomically:YES];
-
       if (!success) {
           [DYYYUtils showToast:@"备份失败：无法创建临时文件"];
           return;
@@ -3283,18 +5601,15 @@ speedSettingsItem.detail = trimmedText;
       // 创建文档选择器让用户选择保存位置
       NSURL *tempFileURL = [NSURL fileURLWithPath:tempFilePath];
       UIDocumentPickerViewController *documentPicker = [[UIDocumentPickerViewController alloc] initWithURLs:@[ tempFileURL ] inMode:UIDocumentPickerModeExportToService];
-
       DYYYBackupPickerDelegate *pickerDelegate = [[DYYYBackupPickerDelegate alloc] init];
       pickerDelegate.tempFilePath = tempFilePath; // 设置临时文件路径
       pickerDelegate.completionBlock = ^(NSURL *url) {
         // 备份成功
         [DYYYUtils showToast:@"备份成功"];
       };
-
       static char kDYYYBackupPickerDelegateKey;
       documentPicker.delegate = pickerDelegate;
       objc_setAssociatedObject(documentPicker, &kDYYYBackupPickerDelegateKey, pickerDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-
       UIViewController *topVC = topView();
       [topVC presentViewController:documentPicker animated:YES completion:nil];
     };
@@ -3308,7 +5623,7 @@ speedSettingsItem.detail = trimmedText;
     restoreItem.type = 0;
     restoreItem.svgIconImageName = @"ic_phonearrowup_outlined_20";
     restoreItem.cellType = 26;
-    restoreItem.colorStyle = 0;
+    restoreItem.colorStyle = 2;
     restoreItem.isEnable = YES;
     restoreItem.cellTappedBlock = ^{
       UIDocumentPickerViewController *documentPicker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:@[ @"public.json", @"public.text" ] inMode:UIDocumentPickerModeImport];
@@ -3326,7 +5641,6 @@ speedSettingsItem.detail = trimmedText;
 
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
           NSData *jsonData = [NSData dataWithContentsOfURL:url];
-
           if (!jsonData) {
               dispatch_async(dispatch_get_main_queue(), ^{
                 [DYYYUtils showToast:@"无法读取备份文件"];
@@ -3336,7 +5650,6 @@ speedSettingsItem.detail = trimmedText;
 
           NSError *jsonError;
           NSDictionary *dyyySettings = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&jsonError];
-
           if (jsonError || ![dyyySettings isKindOfClass:[NSDictionary class]]) {
               dispatch_async(dispatch_get_main_queue(), ^{
                 [DYYYUtils showToast:@"备份文件格式错误"];
@@ -3349,7 +5662,6 @@ speedSettingsItem.detail = trimmedText;
               NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
               NSString *dyyyFolderPath = [documentsPath stringByAppendingPathComponent:@"DYYY"];
               NSFileManager *fileManager = [NSFileManager defaultManager];
-
               if (![fileManager fileExistsAtPath:dyyyFolderPath]) {
                   [fileManager createDirectoryAtPath:dyyyFolderPath withIntermediateDirectories:YES attributes:nil error:nil];
               }
@@ -3406,7 +5718,7 @@ speedSettingsItem.detail = trimmedText;
     cleanSettingsItem.type = 0;
     cleanSettingsItem.svgIconImageName = @"ic_trash_outlined_20";
     cleanSettingsItem.cellType = 26;
-    cleanSettingsItem.colorStyle = 0;
+    cleanSettingsItem.colorStyle = 2;
     cleanSettingsItem.isEnable = YES;
     cleanSettingsItem.cellTappedBlock = ^{
       [DYYYBottomAlertView showAlertWithTitle:@"清除设置"
@@ -3472,15 +5784,23 @@ speedSettingsItem.detail = trimmedText;
     };
     [cleanupItems addObject:cleanSettingsItem];
 
-    NSArray<NSString *> *customDirs = @[ @"Application Support/gurd_cache", @"Caches", @"BDByteCast", @"kitelog" ];
+    NSArray<NSString *> *customDirs = @[ @"Application Support", @"BDByteCast", @"kitelog" ];
     NSMutableSet<NSString *> *uniquePaths = [NSMutableSet set];
-    [uniquePaths addObject:NSTemporaryDirectory()];
-    [uniquePaths addObject:NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject];
+    NSString *temporaryDirectory = NSTemporaryDirectory();
+    if (temporaryDirectory.length > 0) {
+        [uniquePaths addObject:temporaryDirectory];
+    }
+    NSString *cachesDirectory = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
+    if (cachesDirectory.length > 0) {
+        [uniquePaths addObject:cachesDirectory];
+    }
     NSString *libraryDir = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES).firstObject;
-    for (NSString *sub in customDirs) {
-        NSString *fullPath = [libraryDir stringByAppendingPathComponent:sub];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:fullPath]) {
-            [uniquePaths addObject:fullPath];
+    if (libraryDir.length > 0) {
+        for (NSString *sub in customDirs) {
+            NSString *fullPath = [libraryDir stringByAppendingPathComponent:sub];
+            if ([[NSFileManager defaultManager] fileExistsAtPath:fullPath]) {
+                [uniquePaths addObject:fullPath];
+            }
         }
     }
     NSArray<NSString *> *allPaths = [uniquePaths allObjects];
@@ -3492,7 +5812,7 @@ speedSettingsItem.detail = trimmedText;
     cleanCacheItem.type = 0;
     cleanCacheItem.svgIconImageName = @"ic_broom_outlined";
     cleanCacheItem.cellType = 26;
-    cleanCacheItem.colorStyle = 0;
+    cleanCacheItem.colorStyle = 2;
     cleanCacheItem.isEnable = NO;
     cleanCacheItem.detail = @"计算中...";
     __block unsigned long long initialSize = 0;
@@ -3526,8 +5846,8 @@ speedSettingsItem.detail = trimmedText;
 
         // 修复搜索界面的猜你想搜和猜你想看
         NSFileManager *fileManager = [NSFileManager defaultManager];
-        NSString *activeMetadataFilePath = [libraryDir stringByAppendingPathComponent:@"Application Support/gurd_cache/.active_metadata"];
-        if ([fileManager fileExistsAtPath:activeMetadataFilePath]) {
+        NSString *activeMetadataFilePath = libraryDir.length > 0 ? [libraryDir stringByAppendingPathComponent:@"Application Support/gurd_cache/.active_metadata"] : nil;
+        if (activeMetadataFilePath.length > 0 && [fileManager fileExistsAtPath:activeMetadataFilePath]) {
             [fileManager removeItemAtPath:activeMetadataFilePath error:nil];
         }
 
@@ -3539,12 +5859,12 @@ speedSettingsItem.detail = trimmedText;
         unsigned long long clearedSize = (initialSize > afterSize) ? (initialSize - afterSize) : 0;
 
         dispatch_async(dispatch_get_main_queue(), ^{
-          [DYYYUtils showToast:[NSString stringWithFormat:@"已清理 %@ 缓存", [DYYYUtils formattedSize:clearedSize]]];
+          [DYYYUtils showToast:[NSString stringWithFormat:@"已清理 %@ 缓存，请手动重启抖音", [DYYYUtils formattedSize:clearedSize]]];
 
           strongCleanCacheItem.detail = [DYYYUtils formattedSize:afterSize];
-          // Re-enable the button after cleaning is done
           strongCleanCacheItem.isEnable = YES;
           [strongCleanCacheItem refreshCell];
+          DYYYRestartApplicationAfterDelay(1.2);
         });
       });
     };
@@ -3567,19 +5887,25 @@ speedSettingsItem.detail = trimmedText;
     aboutItem.type = 0;
     aboutItem.iconImageName = @"awe-settings-icon-about";
     aboutItem.cellType = 26;
-    aboutItem.colorStyle = 0;
+    aboutItem.colorStyle = 2;
     aboutItem.isEnable = YES;
     aboutItem.cellTappedBlock = ^{
       [DYYYSettingsHelper showAboutDialog:@"关于DYYY"
-                                  message:@"版本: " DYYY_VERSION @"\n\n"
-                                          @"感谢使用DYYY\n\n"
-                                          @"感谢huami开源\n\n"
-                                          @"@维他入我心 基于DYYY二次开发\n\n"
-                                          @"感谢huami group中群友的支持赞助\n\n"
-                                          @"Telegram @huamidev\n\n"
-                                          @"Telegram @vita_app\n\n"
-                                          @"开源地址 huami1314/DYYY\n\n"
-                                          @"仓库地址 Wtrwx/DYYY\n\n"
+                                  message:@"DYYY · VexCove Edition\n"
+                                          @"版本：" DYYY_VERSION @"\n\n"
+                                          @"感谢使用 DYYY\n\n"
+                                          @"本项目基于 Wtrwx/DYYY 继续开发与维护\n"
+                                          @"感谢 huami 开源 DYYY\n"
+                                          @"感谢 @维他 的二次开发贡献\n"
+                                          @"感谢 huami group 群友的支持与赞助\n\n"
+                                          @"Telegram\n"
+                                          @"• huami：@huamidev\n"
+                                          @"• 维他：@vita_app\n"
+                                          @"• VexCove：@VexCove1\n\n"
+                                          @"GitHub\n"
+                                          @"• 原始开源仓库：huami1314/DYYY\n"
+                                          @"• 上游仓库：Wtrwx/DYYY\n"
+                                          @"• 当前维护仓库：VexCove/DYYY"
                                 onConfirm:nil];
     };
     [aboutItems addObject:aboutItem];
@@ -3591,7 +5917,7 @@ speedSettingsItem.detail = trimmedText;
     licenseItem.type = 0;
     licenseItem.iconImageName = @"awe-settings-icon-opensource-notice";
     licenseItem.cellType = 26;
-    licenseItem.colorStyle = 0;
+    licenseItem.colorStyle = 2;
     licenseItem.isEnable = YES;
     licenseItem.cellTappedBlock = ^{
       [DYYYSettingsHelper showAboutDialog:@"MIT License"
@@ -3617,9 +5943,47 @@ speedSettingsItem.detail = trimmedText;
     mainSection.itemArray = mainItems;
     aboutSection.itemArray = aboutItems;
 
-    viewModel.sectionDataArray = @[ mainSection, cleanupSection, backupSection, aboutSection ];
+    DYYYRegisterSearchSections(@"DYYY", @[ cleanupSection, backupSection, aboutSection ]);
+
+    NSArray *rootSections = @[ mainSection, cleanupSection, backupSection, aboutSection ];
+    viewModel.sectionDataArray = rootSections;
     objc_setAssociatedObject(settingsVC, &kViewModelKey, viewModel, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    [rootVC.navigationController pushViewController:(UIViewController *)settingsVC animated:YES];
+    DYYYAttachSettingsSearchHeader(settingsVC, viewModel, rootSections, DYYYSettingsSearchEntriesForSections(@"DYYY", rootSections));
+
+    UINavigationController *navigationController = rootVC.navigationController;
+    if (navigationController) {
+        [navigationController pushViewController:(UIViewController *)settingsVC animated:YES];
+    } else {
+        UIViewController *presenter = rootVC;
+        while (presenter.presentedViewController) {
+            presenter = presenter.presentedViewController;
+        }
+        UINavigationController *wrapper = [[UINavigationController alloc] initWithRootViewController:(UIViewController *)settingsVC];
+        wrapper.modalPresentationStyle = UIModalPresentationFullScreen;
+        [presenter presentViewController:wrapper animated:YES completion:nil];
+    }
+
+    NSArray<AWESettingItemModel *> *indexItems = [mainItems copy];
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if ([settingsVC.view isKindOfClass:[UIView class]]) {
+          for (UIView *subview in settingsVC.view.subviews) {
+              if ([subview isKindOfClass:%c(AWENavigationBar)]) {
+                  AWENavigationBar *navigationBar = (AWENavigationBar *)subview;
+                  if ([navigationBar respondsToSelector:@selector(titleLabel)]) {
+                      navigationBar.titleLabel.text = DYYY_NAME;
+                  }
+                  break;
+              }
+          }
+      }
+
+      DYYYResetSettingsSearchIndex();
+      DYYYBuildSettingsSearchIndexIfNeeded(indexItems);
+      DYYYRegisterSearchSections(@"DYYY", @[ cleanupSection, backupSection, aboutSection ]);
+      DYYYSettingsSearchCoordinator *coordinator = objc_getAssociatedObject(settingsVC, &kDYYYSettingsSearchCoordinatorKey);
+      coordinator.searchEntries = DYYYSettingsSearchEntries();
+      gDYYYOpeningSettings = NO;
+    });
 }
 
 %hook AWESettingsViewModel

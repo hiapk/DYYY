@@ -1,0 +1,50 @@
+#ifndef DYYYConstants_h
+#define DYYYConstants_h
+
+#define DYYY_NAME @"DYYY"
+#define DYYY_SETTINGS_NAME @"DYYY设置"
+
+#define DYYY_VERSION @"2.3-4"
+
+// 喜欢页保护设置行标识；密码及保护状态独立保存。
+#define DYYY_LIKE_PRIVACY_SETTINGS_IDENTIFIER @"DYYYLikePrivacySettings"
+#define DYYY_LIKE_PRIVACY_PASSWORD_IDENTIFIER @"DYYYLikePrivacyPassword"
+
+// 默认的远程 ABTest 配置地址
+#define DYYY_DEFAULT_ABTEST_URL @"https://github.com/Nathalie-Annis/AWEABTestDataPatch/releases/latest/download/ABTestDataPatch_A.json"
+
+// 是否使用远程配置的偏好键
+#define DYYY_REMOTE_CONFIG_FLAG_KEY @"DYYYUseRemoteConfig"
+
+// 远程配置状态改变的通知名
+#define DYYY_REMOTE_CONFIG_CHANGED_NOTIFICATION @"DYYYRemoteConfigStateChanged"
+
+// 配置应用方式中的远程模式名称
+#define DYYY_REMOTE_MODE_STRING @"远程模式：启动时自动检查更新"
+
+#define DYYYGeonamesErrorDomain @"com.dyyy.geonames.api.error"
+#define DYYYGeonamesStatusUserInfoKey @"com.dyyy.geonames.api.status"
+
+#define DYYY_DISABLE_FEED_NOW_PLAYING_INFO_KEY @"DYYYDisableFeedNowPlayingInfo"
+
+// 开启设备最高可用帧率（App 激活后确认屏幕能力，再使用 ProMotion 门闩与抖音 FPS 能力；负载过重时自动降档）
+#define DYYY_ENABLE_HIGH_FPS_KEY @"DYYYEnableHighFPS"
+
+// 实时帧率浮窗（依赖 DYYYEnableHighFPS）
+#define DYYY_SHOW_FPS_OVERLAY_KEY @"DYYYShowFPSOverlay"
+
+// 快捷倍速 / 一键清屏按钮：开启后才按四边固定边距贴边拖动；默认关闭
+#define DYYY_SPEED_BUTTON_STICK_TO_EDGE_KEY @"DYYYSpeedButtonStickToEdge"
+#define DYYY_CLEAR_BUTTON_STICK_TO_EDGE_KEY @"DYYYClearButtonStickToEdge"
+#define DYYY_RESET_SPEED_BUTTON_POSITION_KEY @"DYYYResetSpeedButtonPosition"
+#define DYYY_RESET_CLEAR_BUTTON_POSITION_KEY @"DYYYResetClearButtonPosition"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+void DYYYApplyFeedNowPlayingSettingChange(BOOL disableNowPlayingInfo);
+#ifdef __cplusplus
+}
+#endif
+
+#endif
