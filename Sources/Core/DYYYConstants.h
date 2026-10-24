@@ -4,7 +4,7 @@
 #define DYYY_NAME @"DYYY"
 #define DYYY_SETTINGS_NAME @"DYYY设置"
 
-#define DYYY_VERSION @"2.3-4"
+#define DYYY_VERSION @"2.3-5"
 
 // 喜欢页保护设置行标识；密码及保护状态独立保存。
 #define DYYY_LIKE_PRIVACY_SETTINGS_IDENTIFIER @"DYYYLikePrivacySettings"

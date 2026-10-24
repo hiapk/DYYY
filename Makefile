@@ -77,7 +77,8 @@ DYYY_FILES = DYYY.xm \
 	Sources/Features/DYYYHideTemplateCollectionHooks.m \
 	Sources/Features/DYYYSearchKeyboardVoiceHooks.m \
 	Sources/Features/DYYYHighFPSHooks.m \
-	Sources/Features/DYYYFPSOverlay.m
+	Sources/Features/DYYYFPSOverlay.m \
+	Sources/Features/DYYYLongPressPanelFilter.m
 DYYY_FILES += DYYYLikePrivacy.xm \
 	Sources/Features/DYYYLikePrivacyController.m \
 	Sources/Features/DYYYLikePrivacyState.m \

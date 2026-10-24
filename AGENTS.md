@@ -28,6 +28,7 @@
 - **浮窗与快捷操作**
   - 漂浮按钮：`DYYYFloatSpeedButton.(h/m)`、`DYYYFloatClearButton.(h/xm)`。
   - 长按/面板：`DYYYLongPressPanel.xm`、`DYYYBottomAlertView.(h/m)`（复用提示）。
+  - 长按面板原生项目过滤：`Sources/Features/DYYYLongPressPanelFilter.(h/m)`，按类名与文案隐藏推荐、转发到日常、不感兴趣及文本规则项。
 - **辅助代理**
   - `DYYYImagePickerDelegate.(h/m)`、`DYYYBackupPickerDelegate.(h/m)`：统一封装系统 Picker 逻辑。
   - `DYYYCustomInputView.(h/m)`：文本输入。

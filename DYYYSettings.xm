@@ -3859,7 +3859,22 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
               @"detail" : @"",
               @"cellType" : @20,
               @"imageName" : @"ic_eyeslash_outlined_16"
-          }
+          },
+          @{@"identifier" : @"DYYYHidePanelRecommend",
+            @"title" : @"隐藏面板推荐",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : @"DYYYHidePanelShareDaily",
+            @"title" : @"隐藏面板转发到日常",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_eyeslash_outlined_16"},
+          @{@"identifier" : @"DYYYHidePanelDislike",
+            @"title" : @"隐藏面板不感兴趣",
+            @"detail" : @"",
+            @"cellType" : @6,
+            @"imageName" : @"ic_eyeslash_outlined_16"}
       ];
 
       for (NSDictionary *dict in modernpanelSettings) {

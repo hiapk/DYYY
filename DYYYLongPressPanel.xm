@@ -4,6 +4,7 @@
 #import "DYYYCustomInputView.h"
 #import "DYYYFilterSettingsView.h"
 #import "DYYYKeywordListView.h"
+#import "DYYYLongPressPanelFilter.h"
 #import "DYYYManager.h"
 #import "DYYYToast.h"
 #import "DYYYUtils.h"
@@ -199,75 +200,8 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
     if (simplifyPanel) {
         originalArray = @[]; // 清空原始数组
     } else {
-        // 获取需要隐藏的按钮设置（从文本输入框读取，逗号分隔）
-        NSString *hidePanelItems = DYYYGetString(@"DYYYHidePanelItems");
-        NSMutableSet<NSString *> *hideItemsLowerSet = [NSMutableSet set];
-
-        if (hidePanelItems && hidePanelItems.length > 0) {
-            // 支持中英文逗号分隔
-            NSString *normalizedItems = [hidePanelItems stringByReplacingOccurrencesOfString:@"，" withString:@","];
-            NSArray *items = [normalizedItems componentsSeparatedByString:@","];
-            for (NSString *item in items) {
-                NSString *trimmedItem = [item stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                if (trimmedItem.length > 0) {
-                    [hideItemsLowerSet addObject:[trimmedItem lowercaseString]];
-                }
-            }
-        }
-
-        // 如果有需要隐藏的项目，才进行过滤
-        if (hideItemsLowerSet.count > 0) {
-            NSMutableArray *modifiedOriginalGroups = [NSMutableArray array];
-
-            for (id group in originalArray) {
-                if ([group isKindOfClass:%c(AWELongPressPanelViewGroupModel)]) {
-                    AWELongPressPanelViewGroupModel *groupModel = (AWELongPressPanelViewGroupModel *)group;
-                    NSMutableArray *filteredGroupArr = [NSMutableArray array];
-
-                    for (id item in groupModel.groupArr) {
-                        if ([item isKindOfClass:%c(AWELongPressPanelBaseViewModel)]) {
-                            AWELongPressPanelBaseViewModel *viewModel = (AWELongPressPanelBaseViewModel *)item;
-                            NSString *descString = viewModel.describeString;
-
-                            BOOL shouldHide = NO;
-                            if (descString && descString.length > 0) {
-                                NSString *descLower = [descString lowercaseString];
-
-                                // 精确匹配
-                                if ([hideItemsLowerSet containsObject:descLower]) {
-                                    shouldHide = YES;
-                                } else {
-                                    // 部分匹配
-                                    for (NSString *hideItemLower in hideItemsLowerSet) {
-                                        if ([descLower containsString:hideItemLower] || [hideItemLower containsString:descLower]) {
-                                            shouldHide = YES;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (!shouldHide) {
-                                [filteredGroupArr addObject:item];
-                            }
-                        } else {
-                            [filteredGroupArr addObject:item];
-                        }
-                    }
-
-                    if (filteredGroupArr.count > 0) {
-                        AWELongPressPanelViewGroupModel *filteredGroup = [[%c(AWELongPressPanelViewGroupModel) alloc] init];
-                        filteredGroup.groupType = groupModel.groupType;
-                        filteredGroup.isModern = groupModel.isModern;
-                        filteredGroup.groupArr = filteredGroupArr;
-                        [modifiedOriginalGroups addObject:filteredGroup];
-                    }
-                } else {
-                    [modifiedOriginalGroups addObject:group];
-                }
-            }
-            originalArray = modifiedOriginalGroups;
-        }
+        // 隐藏面板项目：文本规则与推荐、转发到日常、不感兴趣开关
+        originalArray = [DYYYLongPressPanelFilter filteredGroups:originalArray groupClass:%c(AWELongPressPanelViewGroupModel)];
     }
 
     // 检查是否启用了任意长按功能
@@ -878,74 +812,8 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
     if (simplifyPanel) {
         originalArray = @[]; // 清空原始数组
     } else {
-        // 获取需要隐藏的按钮设置（从文本输入框读取，逗号分隔）
-        NSString *hidePanelItems = DYYYGetString(@"DYYYHidePanelItems");
-        NSMutableSet<NSString *> *hideItemsLowerSet = [NSMutableSet set];
-
-        if (hidePanelItems && hidePanelItems.length > 0) {
-            // 支持中英文逗号分隔
-            NSString *normalizedItems = [hidePanelItems stringByReplacingOccurrencesOfString:@"，" withString:@","];
-            NSArray *items = [normalizedItems componentsSeparatedByString:@","];
-            for (NSString *item in items) {
-                NSString *trimmedItem = [item stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                if (trimmedItem.length > 0) {
-                    [hideItemsLowerSet addObject:[trimmedItem lowercaseString]];
-                }
-            }
-        }
-
-        // 如果有需要隐藏的项目，才进行过滤
-        if (hideItemsLowerSet.count > 0) {
-            NSMutableArray *modifiedOriginalGroups = [NSMutableArray array];
-
-            for (id group in originalArray) {
-                if ([group isKindOfClass:%c(AWELongPressPanelViewGroupModel)]) {
-                    AWELongPressPanelViewGroupModel *groupModel = (AWELongPressPanelViewGroupModel *)group;
-                    NSMutableArray *filteredGroupArr = [NSMutableArray array];
-
-                    for (id item in groupModel.groupArr) {
-                        if ([item isKindOfClass:%c(AWELongPressPanelBaseViewModel)]) {
-                            AWELongPressPanelBaseViewModel *viewModel = (AWELongPressPanelBaseViewModel *)item;
-                            NSString *descString = viewModel.describeString;
-
-                            BOOL shouldHide = NO;
-                            if (descString && descString.length > 0) {
-                                NSString *descLower = [descString lowercaseString];
-
-                                // 精确匹配
-                                if ([hideItemsLowerSet containsObject:descLower]) {
-                                    shouldHide = YES;
-                                } else {
-                                    // 部分匹配
-                                    for (NSString *hideItemLower in hideItemsLowerSet) {
-                                        if ([descLower containsString:hideItemLower] || [hideItemLower containsString:descLower]) {
-                                            shouldHide = YES;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (!shouldHide) {
-                                [filteredGroupArr addObject:item];
-                            }
-                        } else {
-                            [filteredGroupArr addObject:item];
-                        }
-                    }
-
-                    if (filteredGroupArr.count > 0) {
-                        AWELongPressPanelViewGroupModel *filteredGroup = [[%c(AWELongPressPanelViewGroupModel) alloc] init];
-                        filteredGroup.groupType = groupModel.groupType;
-                        filteredGroup.groupArr = filteredGroupArr;
-                        [modifiedOriginalGroups addObject:filteredGroup];
-                    }
-                } else {
-                    [modifiedOriginalGroups addObject:group];
-                }
-            }
-            originalArray = modifiedOriginalGroups;
-        }
+        // 隐藏面板项目：文本规则与推荐、转发到日常、不感兴趣开关
+        originalArray = [DYYYLongPressPanelFilter filteredGroups:originalArray groupClass:%c(AWELongPressPanelViewGroupModel)];
     }
 
     // 检查是否启用了任意长按功能
