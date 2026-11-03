@@ -1,0 +1,63 @@
+{
+  "bundleIdentifier": "com.ss.iphone.ugc.Aweme",
+  "version": "39.8.0",
+  "build": "398016",
+  "cryptid": 0,
+  "classes": {
+    "AWEUserHomeViewControllerV2": {
+      "selectors": {
+        "viewDidLayoutSubviews": "v16@0:8",
+        "viewDidAppear:": "v20@0:8B16",
+        "viewDidDisappear:": "v20@0:8B16",
+        "tabListViewController": "@16@0:8",
+        "tabHelper": "@16@0:8",
+        "isCurrentUserProfilePage": "B16@0:8",
+        "userModel": "@16@0:8"
+      }
+    },
+    "AWERLPageViewController": {
+      "selectors": {
+        "viewDidLayoutSubviews": "v16@0:8",
+        "setSelectedIndex:": "v24@0:8q16",
+        "selectedIndex": "q16@0:8",
+        "scrollView": "@16@0:8",
+        "scrollViewDidScroll:": "v24@0:8@16",
+        "scrollViewDidEndDragging:willDecelerate:": "v28@0:8@16B24",
+        "scrollViewDidEndDecelerating:": "v24@0:8@16",
+        "scrollViewDidEndScrollingAnimation:": "v24@0:8@16",
+        "addedViewControllers": "@16@0:8",
+        "indexForViewController:": "q24@0:8@16"
+      }
+    },
+    "AWERLTabListViewController": {
+      "selectors": {
+        "pageViewController": "@16@0:8",
+        "segmentView": "@16@0:8",
+        "onViewControllerDidScroll:contentOffset:": "v40@0:8@16{CGPoint=dd}24",
+        "onViewControllerDidScroll:scrollView:": "v32@0:8@16@24"
+      }
+    },
+    "AWERLSegmentView": {
+      "selectors": {
+        "itemModels": "@16@0:8"
+      }
+    },
+    "AWERLSegmentItemDataModel": {
+      "selectors": {
+        "title": "@16@0:8",
+        "selectedTitle": "@16@0:8"
+      }
+    },
+    "AWEUserProfileTabHelper": {
+      "selectors": {
+        "tabTitles": "@16@0:8"
+      }
+    },
+    "AWEUserServiceListener": {
+      "selectors": {
+        "didFinishLoginWithUid:": "v24@0:8@16",
+        "didFinishLogoutWithUid:": "v24@0:8@16"
+      }
+    }
+  }
+}

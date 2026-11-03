@@ -1,6 +1,30 @@
 # DYYY AI Agent 提示文档
 
-本项目是基于 Theos/Logos 的抖音 UI 调整 Tweak。当前仓库 README 标注仅在 **抖音 36.5.0** 版本测试；回答需求时请以仓库现状为准，不要沿用旧版本描述。
+本项目是基于 Theos/Logos 的抖音 UI 调整 Tweak。当前 README 将 **iOS 16.5 / 抖音 39.8.0** 列为开发目标，并明确新增喜欢页保护尚待真机验收；回答需求时请区分开发目标与已验证兼容性，不要沿用旧版本描述。
+
+当前源码与包声明版本为 **2.3-8**，基于 VexCove `2.3-0 #23` 的 `ed7abd316a691fba1c24bad069091701b5b94145`；源码采用 `Sources/` 分层。目标为 RootHide、iOS 16.5、抖音 39.8.0。用户提供了 build 398016 的解密 IPA，主页分页接口已核对；2.3-2 已反馈跨页遮挡问题，2.3-3 只接入 `AWELikeWorkViewController`，用户反馈完全不隐藏、摇动无密码框；2.3-4 改按主页分页标签定位。2.3-8 补齐仅看一次文字的消费状态与上报拦截，保留 2.3-7 广告章节静默提示；新增行为待真机验证。
+
+**版本核验**：区分本地源码声明、上游 Release、fork 发布版本和用户设备实装版本。用户提供不同版本时，先检索 fork 与发布来源；不能仅凭本地版本号判断新版本不存在，或将声明版本直接等同于功能源码版本。
+
+**发布版本与基线分开记录**：用户给出的新版本号可能指本次产物，先明确其含义；本次约定以 2.3-0 #23 开发，首版为 2.3-1，后续修复递增版本。
+
+**版本号同步**：交付新版本时同步 `control`、`Sources/Core/DYYYConstants.h` 的 `DYYY_VERSION`、README 当前版本与验收清单中的设置页版本预期；不能只修改 deb 文件名或构建覆盖参数。历史版本说明保留原版本并标明其历史范围。
+
+**当前修复授权**：用户已说“你定就可以”，授权自行决定当前喜欢页故障的修复细节；在已确认范围内直接完成实现、验证与 RootHide 包交付，不重复确认相同方案。
+
+**已验证源码发布**：用户指出此前修复无法隐藏喜欢页，并已自行重写且真机验证通过。发布时以用户当前源码为准，不覆盖或重新实现；仅提交源码与必要构建配置，排除测试、排查文档、IPA、deb 及中间产物。私有接口存在不能证明实际页面经过该接口，兼容性结论必须有实际调用路径或真机验证支撑。
+
+**开源仓库关系**：发布本项目的修改时应 fork 原始开源仓库，保留上游关联、提交历史与许可证；不要另建失去来源关系的独立仓库。
+
+**本仓库提交身份**：作者与提交者邮箱统一使用 `liangzhaostrive@gmail.com`，不再沿用旧工作邮箱，不自动添加其他作者或 `Co-Authored-By` 署名。历史整理仅合并本人的新增提交，保留上游作者历史与许可证；`.pi/` 是本机代理运行状态，只保留在本地并加入忽略规则，不纳入 Git。
+
+**目标包方案**：用户已明确设备为 iOS 16.5 的 RootHide。默认使用 `SCHEME=roothide`，交付 `iphoneos-arm64e.deb`；不要把 rootless/rootful 包列为此设备的安装选项，交付前核对包架构、安装路径和依赖。
+
+**喜欢页保护回归要求**：用户反馈强黑占位突兀、横向切页时内容闪现、键盘弹起时密码框自动消失。修复应采用抖音原生主题的空列表外观，覆盖切页的完整过渡过程，并将键盘、输入框和临时布局变化与真正离开主页区分开；必须补充过渡过程和密码框生命周期的复现用例。
+
+**喜欢页保护范围**：用户进一步反馈页面观感异常及底部面板被遮挡。提供 IPA 后应先核对该版本的原生喜欢列表接口，将保护层限定在该列表视图树内；不得用跨页面的窗口蒙层覆盖设置、侧边栏或底栏，不得修改宿主的 frame、bounds、transform 或内容尺寸来修正遮挡范围。排查时要区分真实缩放与蒙层越界造成的视觉异常。
+
+**测试目录**：统一使用小写 `tests/`，确认回归用例未被 `.gitignore` 的大小写匹配忽略，确保本地与 CI 执行同一份测试。
 
 ## 工程关键点
 - **Hook 入口**：`DYYY.xm` 负责 Feed、浮窗、全局透明度与 Tab Bar 高度等通用 Hook；`DYYYSettings.xm` 负责抖音设置页相关 Hook（`AWESettingBaseViewController`、`AWELeftSideBarWeatherLabel` 等）并构造 DYYY 自定义设置。
@@ -12,27 +36,46 @@
 ## 类路径速查（按 UI/功能分组）
 - **入口 Hook / 控制器**
   - `DYYY.xm`、`DYYYSettings.xm`：全局 Hook、设置页 Hook。
-  - `DYYYSettingViewController.(h/m)`：自定义设置主界面。
-  - `DYYYSettingsHelper.(h/m)`：设置项依赖、入口、协议弹窗。
+  - `Sources/Settings/DYYYSettingViewController.(h/m)`：自定义设置主界面。
+  - `Sources/Settings/DYYYSettingsHelper.(h/m)`：设置项依赖、入口、协议弹窗。
 - **业务/下载**
-  - `DYYYManager.(h/m)`：下载、合成、任务管理、授权。
-  - `CityManager.(h/m)`：城市映射与 GeoNames 查询。
-  - `AWMSafeDispatchTimer.(h/m)`：安全延时定时器。
+  - `Sources/Media/DYYYManager.(h/m)`：下载、合成、任务管理、授权。
+  - `Sources/Core/CityManager.(h/m)`：城市映射与 GeoNames 查询。
+  - `Sources/Core/AWMSafeDispatchTimer.(h/m)`：安全延时定时器。
 - **通用工具/常量**
-  - `DYYYUtils.(h/m)`：窗口/颜色/路径等工具。
+  - `Sources/Core/DYYYUtils.(h/m)`：窗口/颜色/路径等工具。
   - `DYYYConstants.h`：Keys、URL、通知名。
 - **设置页复用 UI（按交互类型）**
-  - 列表/选择：`DYYYKeywordListView.(h/m)`、`DYYYOptionsSelectionView.(h/m)`、`DYYYFilterSettingsView.(h/m)`。
-  - 输入/图标配置：`DYYYCustomInputView.(h/m)`、`DYYYIconOptionsDialogView.(h/m)`、`DYYYImagePickerDelegate.(h/m)`、`DYYYBackupPickerDelegate.(h/m)`。
-  - 弹窗/提示：`DYYYBottomAlertView.(h/m)`、`DYYYConfirmCloseView.(h/m)`、`DYYYAboutDialogView.(h/m)`、`DYYYToast.(h/m)`。
+  - 列表/选择：`Sources/UI/DYYYKeywordListView.(h/m)`、`Sources/UI/DYYYOptionsSelectionView.(h/m)`、`Sources/UI/DYYYFilterSettingsView.(h/m)`。
+  - 输入/图标配置：`Sources/UI/DYYYCustomInputView.(h/m)`、`Sources/UI/DYYYIconOptionsDialogView.(h/m)`、`Sources/Settings/DYYYPickerDelegates.(h/m) 中的 DYYYImagePickerDelegate`、`Sources/Settings/DYYYPickerDelegates.(h/m) 中的 DYYYBackupPickerDelegate`。
+  - 弹窗/提示：`Sources/UI/DYYYBottomAlertView.(h/m)`、`Sources/UI/DYYYConfirmCloseView.(h/m)`、`Sources/UI/DYYYAboutDialogView.(h/m)`、`Sources/UI/DYYYToast.(h/m)`。
 - **浮窗与快捷操作**
-  - 漂浮按钮：`DYYYFloatSpeedButton.(h/m)`、`DYYYFloatClearButton.(h/xm)`。
-  - 长按/面板：`DYYYLongPressPanel.xm`、`DYYYBottomAlertView.(h/m)`（复用提示）。
+  - 漂浮按钮：`Sources/Features/DYYYFloatSpeedButton.(h/m)`、`DYYYFloatClearButton.(h/xm)`。
+  - 长按/面板：`DYYYLongPressPanel.xm`、`Sources/UI/DYYYBottomAlertView.(h/m)`（复用提示）。
+  - 长按面板原生项目过滤：`Sources/Features/DYYYLongPressPanelFilter.(h/m)`，按类名与文案隐藏推荐、转发到日常、不感兴趣及文本规则项；可用 `sh tests/run-long-press-panel-tests.sh` 验证。
+- **私信隐私**
+  - `DYYYChatPrivacy.xm`：Hook `TIMXPBAutoFallbackRequest -send`，按请求体字段拦截已读上报（MarkConversationRead 等 6 类）与输入状态（SendInputStatus），以失败回调收尾。
+  - `Sources/Features/DYYYChatPrivacyGuard.(h/m)`：请求类型识别与开关（`DYYYDisableReadReceiptUpload`、`DYYYDisableInputStatusUpload`）。
+- **仅看一次重复查看（实验）**
+  - `DYYYWatchOnceKeep.xm`：接收方文字/图片/视频的消费状态与专用上报 Hook，整组检查运行时接口；文字同时拦 `readState` 的本地 2/4 写入及 `TextWatchEnd`，先记录查询/回填中的真实失效再执行原生处理。媒体仅拦空详情清空模型资源字段，保留正常详情回填与退出清理。
+  - `Sources/Features/DYYYWatchOnceKeepPolicy.(h/m)`：默认关闭的 `DYYYKeepWatchOnceMessage`、消息范围、混合批次与异步失败回调；用 `sh tests/run-watch-once-keep-tests.sh` 验证策略。单测与编译通过不能代替真机媒体资源验收。
+  - 用户最初反馈「第三次重进显示撤回、第四次提示也消失」，对象是文字且发送方未主动撤回；后续确认当时未开启开关，当前测试正常，不能把最初现象当作开启功能后的故障证据。澄清选项与回归必须包含文字、图片、视频三类，并用 `THEOS=... sh tests/run-watch-once-text-hook-tests.sh` 覆盖至少五次消息对象重建；不得全局屏蔽真实撤回/删除，已消费旧消息不承诺恢复。
+  - 排查开关型功能前先确认该次复现时开关是否实际开启，再确认消息类型与版本；未开启时的原生行为不得归因为插件开启后的实现故障。用户后续澄清时必须同步修正先前的根因记录与验收结论。
+- **长视频广告章节**
+  - `DYYYAdChapterSkip.xm`：放开 `enableAdChapterAutoSkip`/`enableAdChapterPlugin`，并让 `AWECodeGenChapterDataModel.adChapterAutoSkipIndexArray` 返回全部广告章节，复用抖音原生跳过与提示。
+  - `Sources/Features/DYYYAdChapterSkipPolicy.(h/m)`：开关 `DYYYAutoSkipAdChapter` 与序号改写规则；与私信隐私一起可用 `sh tests/run-chat-privacy-tests.sh` 验证。
+  - 静默跳过只拦竖屏组件、播放器插件和横屏控制器的 `showAdSkipChapterToastWithStartTime:endTime:`，不吞全局 Toast；关闭广告章节开关恢复原生提示。用 `THEOS=... sh tests/run-ad-chapter-toast-tests.sh` 验证实际 Logos Hook 的展示次数、开关恢复与时间参数透传。
 - **辅助代理**
-  - `DYYYImagePickerDelegate.(h/m)`、`DYYYBackupPickerDelegate.(h/m)`：统一封装系统 Picker 逻辑。
-  - `DYYYCustomInputView.(h/m)`：文本输入。
+  - `Sources/Settings/DYYYPickerDelegates.(h/m) 中的 DYYYImagePickerDelegate`、`Sources/Settings/DYYYPickerDelegates.(h/m) 中的 DYYYBackupPickerDelegate`：统一封装系统 Picker 逻辑。
+  - `Sources/UI/DYYYCustomInputView.(h/m)`：文本输入。
 - **ABTest / 远程配置**
   - `DYYYABTestHook.(h/xm)`：抖音 ABTest 注入。
+- **喜欢页保护**
+  - `DYYYLikePrivacy.xm`：自己主页（`AWEUserHomeViewControllerV2`）、分页（`AWERLPageViewController`/`AWERLTabListViewController`）与账号事件接入，不全局拦截窗口、滚动视图或控制器。
+  - `Sources/Features/DYYYLikePrivacyController.(h/m)`：主页与喜欢标签识别、分页内遮挡、会话锁定、视频交接、密码输入与设置入口。
+  - `Sources/UI/DYYYLikePrivacyCoverView.(h/m)`：原生风格空状态遮挡层与系统摇动事件接收。
+  - `Sources/Features/DYYYLikePrivacyPagePolicy.(h/m)`：喜欢标签序号识别与遮挡几何，可独立测试。
+  - `Sources/Features/DYYYLikePrivacyState.(h/m)`：Keychain 密码记录、密码校验与浏览会话；可用 `sh tests/run-like-privacy-tests.sh` 在 macOS 上验证。
 
 (按上述分组定位 `.h/.m/.xm` 文件，可快速找到对应 UI 或业务类。若新增类，请将文件放入同类路径并在这里补充。)
 

@@ -4,12 +4,13 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-iOS%2014.0%2B-black?style=flat&labelColor=black" />
-  <img src="https://img.shields.io/badge/App-%E6%8A%96%E9%9F%B3%2036.5.0-black?style=flat&labelColor=black" />
+  <img src="https://img.shields.io/badge/App-%E6%8A%96%E9%9F%B3%E6%9C%80%E6%96%B0%E7%89%88-black?style=flat&labelColor=black" />
 </p>
 
 # DYYY
 
-用于调整抖音 UI 的 Theos/Logos Tweak，仅在 **36.5.0 版本** 中测试。  
+用于调整抖音 UI 的 Theos/Logos Tweak。本地版本为 **2.3-8**，基于 VexCove **2.3-0 #23**。<br>
+本次目标环境为 **RootHide / iOS 16.5 / 抖音 39.8.0**；已根据用户提供的解密 IPA 核对原生喜欢页接口，本版修复跨页面遮挡，仍需真机复测，详见 [源码基线与验证说明](SOURCE_BASELINE.md)。<br>
 **仅供学习交流，禁止用于商业用途。**
 
 ## 目录
@@ -22,13 +23,31 @@
 - [许可证](#许可证)
 
 ## 功能亮点
+- 2.3-8：补齐仅看一次文字的消费状态与上报拦截，新增五次聊天对象重建回归；文字实际展示待真机验收
+- 2.3-7：长视频广告章节自动跳过时隐藏原生跳过提示；包含仅看一次重复查看实验功能，新增行为待真机验收
 - 通过 **双指长按** 或 **抖音设置** 进入设置界面
 - 支持远程 JSON 批量下发配置
 - 解析多种下载接口字段（视频、图片、音频、封面）
+- 喜欢页默认空白，摇动并输入 4～6 位数字密码后显示列表
 
 ## 使用方式
 - 打开抖音后 **双指长按** 进入设置
 - 或在 **抖音设置** 中找到 DYYY 入口
+
+### 喜欢页保护（2.3-4 修复版）
+
+1. 在 DYYY「基本设置 → 喜欢页保护」设置并确认 4～6 位数字密码。双指长按设置页也提供同名入口。首次设置成功后自动开启保护。
+2. 自己的「喜欢」标签保留，列表默认显示跟随抖音主题的“暂无喜欢的作品”空状态；在该页摇动手机，验证密码后显示内容。
+3. 从列表打开视频再返回，保持本次解锁；切换标签、离开个人主页、切换账号或退后台后重新锁定。
+4. 修改密码或关闭保护需要原密码。密码不参与配置导出，清除普通配置也不会重置密码。
+
+该功能只控制当前设备的界面显示。若出现「未适配当前页面」提示，当前页面不能视为已受保护；请按 [设备验收清单](tests/like-privacy-device-checklist.md) 检查实际效果。
+
+## 仅看一次重复查看（实验）
+
+在 DYYY「隐私」中开启，默认关闭。尝试保留接收的仅看一次文字、图片和视频，供同一进程内再次查看；不恢复原生已判定失效的消息。关闭后，后续观看按原生消费流程处理，不保证自动补报之前拦截的记录。
+
+目标环境为 **RootHide / iOS 16.5 / 抖音 39.8.0（build 398016）**。此功能尚待真机验收，跨进程保留与资源可用性未获验证，详见[验收清单](tests/watch-once-keep-device-checklist.md)。
 
 ## 贡献者
 
@@ -70,6 +89,7 @@
   </tr>
   <tr>
     <td align="center"><a href="https://github.com/plplpmmmmh"><img src="https://github.com/plplpmmmmh.png?size=120" width="100px;" height="100px;" alt="plplpmmmmh"/></a><br /><sub><b>plplpmmmmh</b></sub></td>
+    <td align="center"><a href="https://github.com/zooah212"><img src="https://github.com/zooah212.png?size=120" width="100px;" height="100px;" alt="zooah212"/></a><br /><sub><b>zooah212</b></sub></td>
   </tr>
 </table>
 
@@ -160,6 +180,32 @@ DYYY 可以通过远程 JSON 文件批量应用设置。默认下载地址在 `D
 }
 ```
 
+### 示例5：图集与实况
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "video_list": [
+      {"url": "https://image.com/1.jpeg", "level": "【第1张】"},
+      {"url": "https://video.com/1_live.mp4", "level": "【第1张实况】"},
+      {"url": "https://image.com/2.jpeg", "level": "【第2张】"}
+    ],
+    "images": [
+      "https://image.com/1.jpeg",
+      "https://image.com/2.jpeg"
+    ],
+    "live_videos": [
+      "https://video.com/1_live.mp4",
+      null
+    ],
+    "cover": "https://image.com/cover.jpg"
+  }
+}
+```
+
+上例是 2 张图的图集，第 1 张带实况、第 2 张不带。
+
 ### 字段说明
 | 字段名       | 类型       | 说明                               |
 | ------------ | ---------- | ---------------------------------- |
@@ -174,6 +220,21 @@ DYYY 可以通过远程 JSON 文件批量应用设置。默认下载地址在 `D
 | `music_url`  | 字符串     | 背景音乐URL（备用字段）            |
 | `images`     | 字符串数组 | 附加图片资源集合                   |
 | `img`        | 字符串数组 | 附加图片资源集合（备用字段）       |
+| `live_videos`| 数组       | 图集各张对应的实况视频，与 `images` 等长，无实况的位置为 `null` |
+
+### `video_list` 行类型的判定规则
+
+行的处理方式由它的 `url` 落在哪个数组决定，与 `level` 文案无关 —— 接口改文案模板不会影响客户端：
+
+| 行 `url` 命中 | 处理 |
+| ------------- | ---- |
+| `images[]` 或 `img[]` | 按图片保存，落盘 `.jpg` |
+| `live_videos[i]` | 与 `images[i]` 配对，存成 iOS 原生实况照片 |
+| 都不命中 | 按视频保存，画质行与接口自定义的信息行都走这里 |
+
+同一下标既给出静图行、又给出实况行时，只展示实况行：两行是同一张的两种形态，留着静图行会让人以为选它也能得到实况。因此 `【第2张】` 与 `【第2张实况】` 同时存在时，弹窗里只保留后者。
+
+图集多于一项时会追加一行「保存全部」，文案随构成变化：全为静图是「保存全部图片」，全带实况是「保存全部实况」，两者混合是「保存全部图片和实况」，混合时每张各按自己的形态保存。
 
 ## 构建与打包
 
@@ -183,16 +244,12 @@ DYYY 可以通过远程 JSON 文件批量应用设置。默认下载地址在 `D
 make clean package
 ```
 
-- 安装到设备（需要配置 `THEOS_DEVICE_IP`）：
+- 默认打包为 rootless；切换其他方案：
 
 ```bash
-make package INSTALL=1
-```
-
-- 切换不同包方案（示例 rootless）：
-
-```bash
-make package SCHEME=rootless
+make package                 # 默认 rootless
+make package SCHEME=rootful
+make package SCHEME=roothide
 ```
 
 - CI/无人值守：

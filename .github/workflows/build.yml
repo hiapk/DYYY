@@ -37,10 +37,18 @@ jobs:
 
       - name: Build package
         run: |
+          sh tests/run-like-privacy-tests.sh
+          sh tests/run-long-press-panel-tests.sh
+          sh tests/run-chat-privacy-tests.sh
+          sh tests/run-ad-chapter-toast-tests.sh
+          sh tests/run-watch-once-keep-tests.sh
+          sh tests/run-watch-once-text-hook-tests.sh
+          python3 tests/check-like-privacy-scope.py
+          python3 tests/check-logos-header-hook.py
           rm -f packages/*
-          make package FINALPACKAGE=1 -j$(sysctl -n hw.ncpu)
-          make package THEOS_PACKAGE_SCHEME=rootless FINALPACKAGE=1 -j$(sysctl -n hw.ncpu)
-          make package THEOS_PACKAGE_SCHEME=roothide FINALPACKAGE=1 -j$(sysctl -n hw.ncpu)
+          make package SCHEME=rootful FINALPACKAGE=1 -j$(sysctl -n hw.ncpu)
+          make package SCHEME=rootless FINALPACKAGE=1 -j$(sysctl -n hw.ncpu)
+          make package SCHEME=roothide FINALPACKAGE=1 -j$(sysctl -n hw.ncpu)
 
       - name: Upload specific Deb packages
         uses: actions/upload-artifact@v4.6.0
