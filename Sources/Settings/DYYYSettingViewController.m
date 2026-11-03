@@ -3,6 +3,7 @@
 #import <UIKit/UIKit.h>
 #import "DYYYConstants.h"
 #import "DYYYLikePrivacyController.h"
+#import "DYYYLocalTools.h"
 #import "DYYYFloatClearButton.h"
 #import "DYYYFloatSpeedButton.h"
 #import "DYYYKeyboardAvoidanceCoordinator.h"
@@ -144,6 +145,12 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) { DYYYSettingItemTypeSwitch, DYY
 - (void)setupSettingItems {
     self.settingSections = @[
         @[
+            [DYYYSettingItem itemWithTitle:@"视频／主页本地书签" key:@"DYYYEnableBookmarks" type:DYYYSettingItemTypeSwitch],
+            [DYYYSettingItem itemWithTitle:@"管理本地书签" key:@"DYYYBookmarksList" type:DYYYSettingItemTypeAction],
+            [DYYYSettingItem itemWithTitle:@"密友会话隐藏（无未读时）" key:@"DYYYHideCloseFriendChats" type:DYYYSettingItemTypeSwitch],
+            [DYYYSettingItem itemWithTitle:@"管理隐藏会话名单" key:@"DYYYHiddenConversationUIDs" type:DYYYSettingItemTypeAction],
+            [DYYYSettingItem itemWithTitle:@"下载重试与图片兼容" key:@"DYYYEnableDownloadFallback" type:DYYYSettingItemTypeSwitch],
+            [DYYYSettingItem itemWithTitle:@"显示下载速度与大小" key:@"DYYYShowDownloadDetails" type:DYYYSettingItemTypeSwitch],
             [DYYYSettingItem itemWithTitle:@"喜欢页保护" key:DYYY_LIKE_PRIVACY_SETTINGS_IDENTIFIER type:DYYYSettingItemTypeAction],
             [DYYYSettingItem itemWithTitle:@"设置／修改喜欢页密码" key:DYYY_LIKE_PRIVACY_PASSWORD_IDENTIFIER type:DYYYSettingItemTypeAction],
             [DYYYSettingItem itemWithTitle:@"视频背景颜色" key:@"DYYYVideoBGColor" type:DYYYSettingItemTypeTextField placeholder:@"十六进制"],
@@ -662,6 +669,8 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) { DYYYSettingItemTypeSwitch, DYY
     if (item.type == DYYYSettingItemTypeAction) {
         UILabel *status = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 130, 36)];
         status.text = [item.key isEqualToString:DYYY_LIKE_PRIVACY_SETTINGS_IDENTIFIER] ? [[DYYYLikePrivacyController shared] protectionStatus] : @"4～6 位数字";
+        if ([item.key isEqualToString:@"DYYYBookmarksList"]) status.text = @"当前账号 · 本机";
+        if ([item.key isEqualToString:@"DYYYHiddenConversationUIDs"]) status.text = @"真实 UID";
         status.font = [UIFont systemFontOfSize:12];
         status.numberOfLines = 2;
         status.textColor = UIColor.lightGrayColor;
@@ -757,7 +766,11 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) { DYYYSettingItemTypeSwitch, DYY
         void (^refresh)(void) = ^{ [weakSelf.tableView reloadData]; };
         if ([item.key isEqualToString:DYYY_LIKE_PRIVACY_SETTINGS_IDENTIFIER]) {
             [[DYYYLikePrivacyController shared] showProtectionSettingsWithCompletion:refresh];
-        } else {
+        } else if ([item.key isEqualToString:@"DYYYBookmarksList"]) {
+            [[DYYYLocalTools shared] showBookmarks];
+        } else if ([item.key isEqualToString:@"DYYYHiddenConversationUIDs"]) {
+            [[DYYYLocalTools shared] showHiddenUIDs];
+        } else if ([item.key isEqualToString:DYYY_LIKE_PRIVACY_PASSWORD_IDENTIFIER]) {
             [[DYYYLikePrivacyController shared] showPasswordSettingsWithCompletion:refresh];
         }
     }

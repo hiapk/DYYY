@@ -6,6 +6,7 @@
 #import "DYYYKeywordListView.h"
 #import "DYYYLongPressPanelFilter.h"
 #import "DYYYManager.h"
+#import "DYYYLocalTools.h"
 #import "DYYYToast.h"
 #import "DYYYUtils.h"
 
@@ -222,7 +223,7 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
 
     // 检查是否有任何功能启用
     hasAnyFeatureEnabled = enableSaveVideo || enableSaveCover || enableSaveAudio || enableSaveCurrentImage || enableSaveAllImages || enableCopyText || enableCopyLink || enableApiDownload ||
-                           enableFilterUser || enableFilterKeyword || enableTimerClose || enableCreateVideo;
+                           enableFilterUser || enableFilterKeyword || enableTimerClose || enableCreateVideo || DYYYGetBool(@"DYYYEnableBookmarks");
 
     // 如果没有任何功能启用，仅使用官方按钮
     if (!hasAnyFeatureEnabled) {
@@ -247,11 +248,11 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           AWEMusicModel *musicModel = awemeModel.music;
           NSURL *audioURL = nil;
           if (musicModel && musicModel.playURL && musicModel.playURL.originURLList.count > 0) {
-              audioURL = [NSURL URLWithString:musicModel.playURL.originURLList.firstObject];
+              audioURL = [DYYYUtils mediaURLWithCandidates:musicModel.playURL.originURLList preferredURL:nil];
           }
 
                   if (videoModel.h264URL && videoModel.h264URL.originURLList.count > 0) {
-                      NSURL *url = [NSURL URLWithString:videoModel.h264URL.originURLList.firstObject];
+                      NSURL *url = [DYYYUtils mediaURLWithCandidates:videoModel.h264URL.originURLList preferredURL:nil];
                       [DYYYManager downloadMedia:url
                                        mediaType:MediaTypeVideo
                                            audio:audioURL
@@ -279,15 +280,15 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           // 使用封面URL作为图片URL
           NSURL *imageURL = nil;
           if (videoModel.coverURL && videoModel.coverURL.originURLList.count > 0) {
-              imageURL = [NSURL URLWithString:videoModel.coverURL.originURLList.firstObject];
+              imageURL = [DYYYUtils mediaURLWithCandidates:videoModel.coverURL.originURLList preferredURL:nil];
           }
 
           // 视频URL从视频模型获取
           NSURL *videoURL = nil;
           if (videoModel && videoModel.playURL && videoModel.playURL.originURLList.count > 0) {
-              videoURL = [NSURL URLWithString:videoModel.playURL.originURLList.firstObject];
+              videoURL = [DYYYUtils mediaURLWithCandidates:videoModel.playURL.originURLList preferredURL:nil];
           } else if (videoModel && videoModel.h264URL && videoModel.h264URL.originURLList.count > 0) {
-              videoURL = [NSURL URLWithString:videoModel.h264URL.originURLList.firstObject];
+              videoURL = [DYYYUtils mediaURLWithCandidates:videoModel.h264URL.originURLList preferredURL:nil];
           }
 
           // 下载实况照片
@@ -345,6 +346,7 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
               }
           }
 
+          downloadURL = [DYYYUtils mediaURLWithCandidates:currentImageModel.urlList preferredURL:downloadURL];
           if (currentImageModel.clipVideo != nil) {
               NSURL *videoURL = [currentImageModel.clipVideo.playURL getDYYYSrcURLDownload];
               [DYYYManager downloadLivePhoto:downloadURL
@@ -409,15 +411,16 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
                   }
 
                   if (!downloadURL && imageModel.urlList.count > 0) {
-                      downloadURL = [NSURL URLWithString:imageModel.urlList.firstObject];
+                      downloadURL = [DYYYUtils mediaURLWithCandidates:imageModel.urlList preferredURL:nil];
                   }
 
+                  downloadURL = [DYYYUtils mediaURLWithCandidates:imageModel.urlList preferredURL:downloadURL];
                   // 检查是否是实况照片
                   if (imageModel.clipVideo != nil) {
                       NSURL *videoURL = [imageModel.clipVideo.playURL getDYYYSrcURLDownload];
                       [livePhotos addObject:@{@"imageURL" : downloadURL.absoluteString, @"videoURL" : videoURL.absoluteString}];
                   } else {
-                      [imageURLs addObject:downloadURL.absoluteString];
+                      [imageURLs addObject:downloadURL];
                   }
               }
           }
@@ -474,7 +477,7 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           AWEAwemeModel *awemeModel = self.awemeModel;
           AWEVideoModel *videoModel = awemeModel.video;
           if (videoModel && videoModel.coverURL && videoModel.coverURL.originURLList.count > 0) {
-              NSURL *url = [NSURL URLWithString:videoModel.coverURL.originURLList.firstObject];
+              NSURL *url = [DYYYUtils mediaURLWithCandidates:videoModel.coverURL.originURLList preferredURL:nil];
               [DYYYManager downloadMedia:url
                                mediaType:MediaTypeImage
                                    audio:nil
@@ -502,7 +505,7 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           AWEAwemeModel *awemeModel = self.awemeModel;
           AWEMusicModel *musicModel = awemeModel.music;
           if (musicModel && musicModel.playURL && musicModel.playURL.originURLList.count > 0) {
-              NSURL *url = [NSURL URLWithString:musicModel.playURL.originURLList.firstObject];
+              NSURL *url = [DYYYUtils mediaURLWithCandidates:musicModel.playURL.originURLList preferredURL:nil];
               [DYYYManager downloadMedia:url mediaType:MediaTypeAudio audio:nil completion:nil];
           }
           AWELongPressPanelManager *panelManager = [%c(AWELongPressPanelManager) shareInstance];
@@ -597,6 +600,28 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           [panelManager dismissWithAnimation:YES completion:nil];
         };
         [viewModels addObject:copyText];
+    }
+
+    if (DYYYGetBool(@"DYYYEnableBookmarks")) {
+        AWEAwemeModel *bookmarkedModel = self.awemeModel;
+        AWELongPressPanelBaseViewModel *bookmark = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
+        bookmark.awemeModel = bookmarkedModel;
+        bookmark.actionType = 682;
+        bookmark.duxIconName = @"ic_star_outlined_20";
+        bookmark.describeString = @"保存视频书签";
+        bookmark.action = ^{
+            DYYYLongPressDismissPanelThen(^{ [[DYYYLocalTools shared] saveVideoBookmark:bookmarkedModel]; });
+        };
+        [viewModels addObject:bookmark];
+        AWELongPressPanelBaseViewModel *list = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
+        list.awemeModel = bookmarkedModel;
+        list.actionType = 683;
+        list.duxIconName = @"ic_list_outlined";
+        list.describeString = @"本地书签列表";
+        list.action = ^{
+            DYYYLongPressDismissPanelThen(^{ [[DYYYLocalTools shared] showBookmarks]; });
+        };
+        [viewModels addObject:list];
     }
 
     // 复制分享链接功能
@@ -835,7 +860,7 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
 
     // 检查是否有任何功能启用
     hasAnyFeatureEnabled = enableSaveVideo || enableSaveCover || enableSaveAudio || enableSaveCurrentImage || enableSaveAllImages || enableCopyText || enableCopyLink || enableApiDownload ||
-                           enableFilterUser || enableFilterKeyword || enableTimerClose || enableCreateVideo;
+                           enableFilterUser || enableFilterKeyword || enableTimerClose || enableCreateVideo || DYYYGetBool(@"DYYYEnableBookmarks");
 
     if (!hasAnyFeatureEnabled) {
         return originalArray;
@@ -861,12 +886,12 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           AWEMusicModel *musicModel = awemeModel.music;
           NSURL *audioURL = nil;
           if (musicModel && musicModel.playURL && musicModel.playURL.originURLList.count > 0) {
-              audioURL = [NSURL URLWithString:musicModel.playURL.originURLList.firstObject];
+              audioURL = [DYYYUtils mediaURLWithCandidates:musicModel.playURL.originURLList preferredURL:nil];
           }
 
                   // 备用方法：直接使用h264URL
                   if (videoModel.h264URL && videoModel.h264URL.originURLList.count > 0) {
-                      NSURL *url = [NSURL URLWithString:videoModel.h264URL.originURLList.firstObject];
+                      NSURL *url = [DYYYUtils mediaURLWithCandidates:videoModel.h264URL.originURLList preferredURL:nil];
                       [DYYYManager downloadMedia:url
                                        mediaType:MediaTypeVideo
                                            audio:audioURL
@@ -894,15 +919,15 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           // 使用封面URL作为图片URL
           NSURL *imageURL = nil;
           if (videoModel.coverURL && videoModel.coverURL.originURLList.count > 0) {
-              imageURL = [NSURL URLWithString:videoModel.coverURL.originURLList.firstObject];
+              imageURL = [DYYYUtils mediaURLWithCandidates:videoModel.coverURL.originURLList preferredURL:nil];
           }
 
           // 视频URL从视频模型获取
           NSURL *videoURL = nil;
           if (videoModel && videoModel.playURL && videoModel.playURL.originURLList.count > 0) {
-              videoURL = [NSURL URLWithString:videoModel.playURL.originURLList.firstObject];
+              videoURL = [DYYYUtils mediaURLWithCandidates:videoModel.playURL.originURLList preferredURL:nil];
           } else if (videoModel && videoModel.h264URL && videoModel.h264URL.originURLList.count > 0) {
-              videoURL = [NSURL URLWithString:videoModel.h264URL.originURLList.firstObject];
+              videoURL = [DYYYUtils mediaURLWithCandidates:videoModel.h264URL.originURLList preferredURL:nil];
           }
 
           // 下载实况照片
@@ -961,6 +986,7 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
               }
           }
 
+          downloadURL = [DYYYUtils mediaURLWithCandidates:currentImageModel.urlList preferredURL:downloadURL];
           if (currentImageModel.clipVideo != nil) {
               NSURL *videoURL = [currentImageModel.clipVideo.playURL getDYYYSrcURLDownload];
               [DYYYManager downloadLivePhoto:downloadURL
@@ -1025,15 +1051,16 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
                   }
 
                   if (!downloadURL && imageModel.urlList.count > 0) {
-                      downloadURL = [NSURL URLWithString:imageModel.urlList.firstObject];
+                      downloadURL = [DYYYUtils mediaURLWithCandidates:imageModel.urlList preferredURL:nil];
                   }
 
+                  downloadURL = [DYYYUtils mediaURLWithCandidates:imageModel.urlList preferredURL:downloadURL];
                   // 检查是否是实况照片
                   if (imageModel.clipVideo != nil) {
                       NSURL *videoURL = [imageModel.clipVideo.playURL getDYYYSrcURLDownload];
                       [livePhotos addObject:@{@"imageURL" : downloadURL.absoluteString, @"videoURL" : videoURL.absoluteString}];
                   } else {
-                      [imageURLs addObject:downloadURL.absoluteString];
+                      [imageURLs addObject:downloadURL];
                   }
               }
           }
@@ -1090,7 +1117,7 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           AWEAwemeModel *awemeModel = self.awemeModel;
           AWEVideoModel *videoModel = awemeModel.video;
           if (videoModel && videoModel.coverURL && videoModel.coverURL.originURLList.count > 0) {
-              NSURL *url = [NSURL URLWithString:videoModel.coverURL.originURLList.firstObject];
+              NSURL *url = [DYYYUtils mediaURLWithCandidates:videoModel.coverURL.originURLList preferredURL:nil];
               [DYYYManager downloadMedia:url
                                mediaType:MediaTypeImage
                                    audio:nil
@@ -1118,7 +1145,7 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           AWEAwemeModel *awemeModel = self.awemeModel;
           AWEMusicModel *musicModel = awemeModel.music;
           if (musicModel && musicModel.playURL && musicModel.playURL.originURLList.count > 0) {
-              NSURL *url = [NSURL URLWithString:musicModel.playURL.originURLList.firstObject];
+              NSURL *url = [DYYYUtils mediaURLWithCandidates:musicModel.playURL.originURLList preferredURL:nil];
               [DYYYManager downloadMedia:url mediaType:MediaTypeAudio audio:nil completion:nil];
           }
           AWELongPressPanelManager *panelManager = [%c(AWELongPressPanelManager) shareInstance];
@@ -1213,6 +1240,28 @@ static void DYYYLongPressPresentFilterKeywordPanel(NSString *descText, NSString 
           [panelManager dismissWithAnimation:YES completion:nil];
         };
         [viewModels addObject:copyText];
+    }
+
+    if (DYYYGetBool(@"DYYYEnableBookmarks")) {
+        AWEAwemeModel *bookmarkedModel = self.awemeModel;
+        AWELongPressPanelBaseViewModel *bookmark = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
+        bookmark.awemeModel = bookmarkedModel;
+        bookmark.actionType = 682;
+        bookmark.duxIconName = @"ic_star_outlined_20";
+        bookmark.describeString = @"保存视频书签";
+        bookmark.action = ^{
+            DYYYLongPressDismissPanelThen(^{ [[DYYYLocalTools shared] saveVideoBookmark:bookmarkedModel]; });
+        };
+        [viewModels addObject:bookmark];
+        AWELongPressPanelBaseViewModel *list = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
+        list.awemeModel = bookmarkedModel;
+        list.actionType = 683;
+        list.duxIconName = @"ic_list_outlined";
+        list.describeString = @"本地书签列表";
+        list.action = ^{
+            DYYYLongPressDismissPanelThen(^{ [[DYYYLocalTools shared] showBookmarks]; });
+        };
+        [viewModels addObject:list];
     }
 
     // 复制分享链接功能

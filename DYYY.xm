@@ -7134,7 +7134,7 @@ static void DYYYStartHideFeedAnchorHookInstaller(void) {
         bestURL = [NSURL URLWithString:[self.originURLList firstObject]];
     }
 
-    return bestURL;
+    return [DYYYUtils mediaURLWithCandidates:self.originURLList preferredURL:bestURL];
 }
 %end
 
@@ -14672,7 +14672,7 @@ static BOOL DYYYAwemeModelMatchesConfiguredContentFilters(AWEAwemeModel *aweme,
         AWEMusicModel *musicModel = awemeModel.music;
         NSURL *audioURL = nil;
         if (musicModel && musicModel.playURL && musicModel.playURL.originURLList.count > 0) {
-            audioURL = [NSURL URLWithString:musicModel.playURL.originURLList.firstObject];
+            audioURL = [DYYYUtils mediaURLWithCandidates:musicModel.playURL.originURLList preferredURL:nil];
         }
 
         // 确定内容类型（视频或图片）
@@ -14729,6 +14729,7 @@ static BOOL DYYYAwemeModelMatchesConfiguredContentFilters(AWEAwemeModel *aweme,
                                   }
                               }
 
+                              downloadURL = [DYYYUtils mediaURLWithCandidates:currentImageModel.urlList preferredURL:downloadURL];
                               if (currentImageModel.clipVideo != nil) {
                                   NSURL *videoURL = [currentImageModel.clipVideo.playURL getDYYYSrcURLDownload];
                                   [DYYYManager downloadLivePhoto:downloadURL
@@ -14755,15 +14756,15 @@ static BOOL DYYYAwemeModelMatchesConfiguredContentFilters(AWEAwemeModel *aweme,
                               // 使用封面URL作为图片URL
                               NSURL *imageURL = nil;
                               if (videoModel.coverURL && videoModel.coverURL.originURLList.count > 0) {
-                                  imageURL = [NSURL URLWithString:videoModel.coverURL.originURLList.firstObject];
+                                  imageURL = [DYYYUtils mediaURLWithCandidates:videoModel.coverURL.originURLList preferredURL:nil];
                               }
 
                               // 视频URL从视频模型获取
                               NSURL *videoURL = nil;
                               if (videoModel && videoModel.playURL && videoModel.playURL.originURLList.count > 0) {
-                                  videoURL = [NSURL URLWithString:videoModel.playURL.originURLList.firstObject];
+                                  videoURL = [DYYYUtils mediaURLWithCandidates:videoModel.playURL.originURLList preferredURL:nil];
                               } else if (videoModel && videoModel.h264URL && videoModel.h264URL.originURLList.count > 0) {
-                                  videoURL = [NSURL URLWithString:videoModel.h264URL.originURLList.firstObject];
+                                  videoURL = [DYYYUtils mediaURLWithCandidates:videoModel.h264URL.originURLList preferredURL:nil];
                               }
 
                               // 下载实况照片
@@ -14775,7 +14776,7 @@ static BOOL DYYYAwemeModelMatchesConfiguredContentFilters(AWEAwemeModel *aweme,
                               }
                           } else {
                               if (videoModel.h264URL && videoModel.h264URL.originURLList.count > 0) {
-                                  NSURL *url = [NSURL URLWithString:videoModel.h264URL.originURLList.firstObject];
+                                  NSURL *url = [DYYYUtils mediaURLWithCandidates:videoModel.h264URL.originURLList preferredURL:nil];
                                   [DYYYManager downloadMedia:url
                                                    mediaType:MediaTypeVideo
                                                        audio:audioURL
@@ -14820,15 +14821,16 @@ static BOOL DYYYAwemeModelMatchesConfiguredContentFilters(AWEAwemeModel *aweme,
                                       }
 
                                       if (!downloadURL && imageModel.urlList.count > 0) {
-                                          downloadURL = [NSURL URLWithString:imageModel.urlList.firstObject];
+                                          downloadURL = [DYYYUtils mediaURLWithCandidates:imageModel.urlList preferredURL:nil];
                                       }
 
+                                      downloadURL = [DYYYUtils mediaURLWithCandidates:imageModel.urlList preferredURL:downloadURL];
                                       // 检查是否是实况照片
                                       if (imageModel.clipVideo != nil) {
                                           NSURL *videoURL = [imageModel.clipVideo.playURL getDYYYSrcURLDownload];
                                           [livePhotos addObject:@{@"imageURL" : downloadURL.absoluteString, @"videoURL" : videoURL.absoluteString}];
                                       } else {
-                                          [imageURLs addObject:downloadURL.absoluteString];
+                                          [imageURLs addObject:downloadURL];
                                       }
                                   }
                               }
@@ -14856,7 +14858,7 @@ static BOOL DYYYAwemeModelMatchesConfiguredContentFilters(AWEAwemeModel *aweme,
                                                                                                         imgName:nil
                                                                                                         handler:^{
                                                                                                           if (musicModel && musicModel.playURL && musicModel.playURL.originURLList.count > 0) {
-                                                                                                              NSURL *url = [NSURL URLWithString:musicModel.playURL.originURLList.firstObject];
+                                                                                                              NSURL *url = [DYYYUtils mediaURLWithCandidates:musicModel.playURL.originURLList preferredURL:nil];
                                                                                                               [DYYYManager downloadMedia:url mediaType:MediaTypeAudio audio:nil completion:nil];
                                                                                                           }
                                                                                                         }];

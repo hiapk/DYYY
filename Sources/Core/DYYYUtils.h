@@ -11,6 +11,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface DYYYUtils : NSObject
 
+/** 在所选地址上携带同一资源的备用地址，不改写签名或清晰度。 */
++ (nullable NSURL *)mediaURLWithCandidates:(NSArray *)values preferredURL:(nullable NSURL *)preferred;
++ (NSArray<NSURL *> *)mediaCandidatesForURL:(nullable NSURL *)url;
++ (nullable NSString *)currentAccountID;
+
 #pragma mark - Public Model Filtering Utilities (公共模型过滤工具)
 
 /** 使用抖音模型自身的广告判定及明确广告字段识别广告作品。 */

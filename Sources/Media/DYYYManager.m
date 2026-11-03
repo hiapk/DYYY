@@ -1,4 +1,5 @@
 #import "DYYYManager.h"
+#import "DYYYDownloadState.h"
 #import <CoreAudioTypes/CoreAudioTypes.h>
 #import <CoreMedia/CMMetadata.h>
 #import <ImageIO/ImageIO.h>
@@ -50,6 +51,8 @@
 @interface DYYYManager () <NSURLSessionDownloadDelegate>
 @property(nonatomic, strong) NSMutableDictionary<NSString *, NSURLSessionDownloadTask *> *downloadTasks;
 @property(nonatomic, strong) NSMutableDictionary<NSString *, DYYYToast *> *progressViews;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, DYYYDownloadState *> *downloadStates;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, void (^)(float)> *downloadProgressBlocks;
 @property(nonatomic, strong) NSOperationQueue *downloadQueue;
 @property(nonatomic, strong) NSMutableDictionary<NSString *, NSNumber *> *taskProgressMap;
 @property(nonatomic, strong) NSMutableDictionary<NSString *, void (^)(BOOL success, NSURL *fileURL)> *completionBlocks;
@@ -87,6 +90,8 @@
         _fileLinks = [NSMutableDictionary dictionary];
         _downloadTasks = [NSMutableDictionary dictionary];
         _progressViews = [NSMutableDictionary dictionary];
+        _downloadStates = [NSMutableDictionary dictionary];
+        _downloadProgressBlocks = [NSMutableDictionary dictionary];
         _downloadQueue = [[NSOperationQueue alloc] init];
         _downloadQueue.maxConcurrentOperationCount = 3;
         _taskProgressMap = [NSMutableDictionary dictionary];
@@ -167,6 +172,11 @@
             });
         }
         return;
+    }
+
+    if (DYYYGetBool(@"DYYYEnableDownloadFallback") && (mediaType == MediaTypeImage || mediaType == MediaTypeHeic)) {
+        NSString *format = [DYYYUtils detectFileFormat:mediaURL];
+        mediaType = ([@[@"webp", @"gif"] containsObject:format] || (mediaType == MediaTypeHeic && [@[@"heic", @"heif"] containsObject:format])) ? MediaTypeHeic : MediaTypeImage;
     }
 
     [PHPhotoLibrary requestAuthorization:^(PHAuthorizationStatus status) {
@@ -773,61 +783,19 @@
       [[DYYYManager shared] setCompletionBlock:completion forDownloadID:downloadID];
       [[DYYYManager shared] setMediaType:mediaType forDownloadID:downloadID];
 
-      // 配置下载会话 - 使用带委托的会话以获取进度更新
-      NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration defaultSessionConfiguration];
-      NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration delegate:[DYYYManager shared] delegateQueue:[NSOperationQueue mainQueue]];
-
-      // 创建下载任务 - 不使用completionHandler，使用代理方法
-      NSURLSessionDownloadTask *downloadTask = [session downloadTaskWithURL:url];
-      downloadTask.taskDescription = downloadID;
-
-      // 存储下载任务
-      [[DYYYManager shared].downloadTasks setObject:downloadTask forKey:downloadID];
-      [[DYYYManager shared].taskProgressMap setObject:@0.0 forKey:downloadID];  // 初始化进度为0
-
-      // 开始下载
-      [downloadTask resume];
+      DYYYManager *manager = [DYYYManager shared];
+      if (progressBlock) manager.downloadProgressBlocks[downloadID] = [progressBlock copy];
+      progressView.cancelBlock = ^{ [manager cancelDownloadID:downloadID]; };
+      [manager startDownloadURL:url downloadID:downloadID];
     });
 }
 
 // 取消所有下载
 + (void)cancelAllDownloads {
-    NSArray *downloadIDs = [[DYYYManager shared].downloadTasks allKeys];
-
-    for (NSString *downloadID in downloadIDs) {
-        NSURLSessionDownloadTask *task = [[DYYYManager shared].downloadTasks objectForKey:downloadID];
-        if (task) {
-            [task cancel];
-        }
-
-        DYYYToast *progressView = [[DYYYManager shared].progressViews objectForKey:downloadID];
-        if (progressView) {
-            progressView.isCancelled = YES;
-            [progressView dismiss];
-        }
-    }
-
-    NSString *livePhotoPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"LivePhotoBatch"];
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    if ([fileManager fileExistsAtPath:livePhotoPath]) {
-        NSError *error = nil;
-        [fileManager removeItemAtPath:livePhotoPath error:&error];
-        if (error) {
-            NSLog(@"清理实况照片临时目录失败: %@", error.localizedDescription);
-        }
-    }
-
-    NSString *generalLivePhotoPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"LivePhoto"];
-    if ([fileManager fileExistsAtPath:generalLivePhotoPath]) {
-        NSError *error = nil;
-        [fileManager removeItemAtPath:generalLivePhotoPath error:&error];
-        if (error) {
-            NSLog(@"清理LivePhoto临时目录失败: %@", error.localizedDescription);
-        }
-    }
-
-    [[DYYYManager shared].downloadTasks removeAllObjects];
-    [[DYYYManager shared].progressViews removeAllObjects];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        DYYYManager *manager = [self shared];
+        for (NSString *downloadID in manager.downloadStates.allKeys) [manager cancelDownloadID:downloadID];
+    });
 }
 
 + (void)downloadAllImages:(NSMutableArray *)imageURLs {
@@ -861,23 +829,18 @@
 
       [progressView show];
 
-      __block NSInteger completedCount = 0;
-      __block NSInteger successCount = 0;
       NSInteger totalCount = imageURLs.count;
 
       progressView.cancelBlock = ^{
         [self cancelAllDownloads];
-        if (completion) {
-            completion(successCount, totalCount);
-        }
       };
 
       // 存储批量下载的相关信息
       [[DYYYManager shared] setBatchInfo:batchID totalCount:totalCount progressBlock:progressBlock completionBlock:completion];
 
       // 为每个URL创建下载任务
-      for (NSString *urlString in imageURLs) {
-          NSURL *url = [NSURL URLWithString:urlString];
+      for (id source in imageURLs) {
+          NSURL *url = [source isKindOfClass:NSURL.class] ? source : ([source isKindOfClass:NSArray.class] ? [DYYYUtils mediaURLWithCandidates:source preferredURL:nil] : ([source isKindOfClass:NSString.class] ? [NSURL URLWithString:source] : nil));
           if (!url) {
               [[DYYYManager shared] incrementCompletedAndUpdateProgressForBatch:batchID success:NO];
               continue;
@@ -886,18 +849,11 @@
           // 创建单个下载任务ID
           NSString *downloadID = [NSUUID UUID].UUIDString;
           [[DYYYManager shared] associateDownload:downloadID withBatchID:batchID];
-          NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration defaultSessionConfiguration];
-          NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration delegate:[DYYYManager shared] delegateQueue:[NSOperationQueue mainQueue]];
-
-          // 创建下载任务 - 使用代理方法
-          NSURLSessionDownloadTask *downloadTask = [session downloadTaskWithURL:url];
-          [[DYYYManager shared].downloadTasks setObject:downloadTask forKey:downloadID];
-          [[DYYYManager shared].taskProgressMap setObject:@0.0 forKey:downloadID];
           [[DYYYManager shared] setMediaType:MediaTypeImage forDownloadID:downloadID];
           if (batchAlbumDescription.length > 0) {
               [[DYYYManager shared].albumDescriptionMap setObject:batchAlbumDescription forKey:downloadID];
           }
-          [downloadTask resume];
+          [[DYYYManager shared] startDownloadURL:url downloadID:downloadID];
       }
     });
 }
@@ -927,7 +883,12 @@
 
 // 批量下载完成计数并更新进度
 - (void)incrementCompletedAndUpdateProgressForBatch:(NSString *)batchID success:(BOOL)success {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self incrementCompletedAndUpdateProgressForBatch:batchID success:success]; });
+        return;
+    }
     @synchronized(self) {
+        if (!self.batchTotalCountMap[batchID]) return;
         NSNumber *completedCountNum = self.batchCompletedCountMap[batchID];
         NSInteger completedCount = completedCountNum ? [completedCountNum integerValue] + 1 : 1;
         [self.batchCompletedCountMap setObject:@(completedCount) forKey:batchID];
@@ -1083,6 +1044,10 @@
           [self.progressViews removeObjectForKey:downloadID];
       }
 
+      [self.downloadStates[downloadID].session finishTasksAndInvalidate];
+      [self.downloadStates removeObjectForKey:downloadID];
+      [self.downloadProgressBlocks removeObjectForKey:downloadID];
+      [self.albumDescriptionMap removeObjectForKey:downloadID];
       [self.taskProgressMap removeObjectForKey:downloadID];
       [self.completionBlocks removeObjectForKey:downloadID];
       [self.mediaTypeMap removeObjectForKey:downloadID];
@@ -1100,198 +1065,144 @@
     }
 }
 
-#pragma mark - NSURLSessionDownloadDelegate
+#pragma mark - 下载尝试与统一收尾（状态字典仅在主线程使用）
 
-- (void)URLSession:(NSURLSession *)session
-                 downloadTask:(NSURLSessionDownloadTask *)downloadTask
-                 didWriteData:(int64_t)bytesWritten
-            totalBytesWritten:(int64_t)totalBytesWritten
-    totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
-    // 确保不会除以0
-    if (totalBytesExpectedToWrite <= 0) {
+- (void)startDownloadURL:(NSURL *)url downloadID:(NSString *)downloadID {
+    DYYYDownloadState *state = [[DYYYDownloadState alloc] initWithCandidates:[DYYYUtils mediaCandidatesForURL:url]
+                                                             retryEnabled:DYYYGetBool(@"DYYYEnableDownloadFallback")];
+    self.downloadStates[downloadID] = state;
+    if (!state.candidates.count) {
+        [self completeFailedDownload:downloadID cancelled:NO];
         return;
     }
-
-    // 计算进度
-    float progress = (float)totalBytesWritten / totalBytesExpectedToWrite;
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-      NSString *downloadIDForTask = nil;
-
-      for (NSString *key in self.downloadTasks.allKeys) {
-          NSURLSessionDownloadTask *task = self.downloadTasks[key];
-          if (task == downloadTask) {
-              downloadIDForTask = key;
-              break;
-          }
-      }
-
-      // 如果找到对应的进度视图，更新进度
-      if (downloadIDForTask) {
-          [self.taskProgressMap setObject:@(progress) forKey:downloadIDForTask];
-
-          DYYYToast *progressView = self.progressViews[downloadIDForTask];
-          if (progressView) {
-              if (!progressView.isCancelled) {
-                  [progressView setProgress:progress];
-              }
-          }
-      }
-    });
+    NSURLSessionConfiguration *configuration = NSURLSessionConfiguration.defaultSessionConfiguration;
+    configuration.timeoutIntervalForRequest = 30;
+    state.session = [NSURLSession sessionWithConfiguration:configuration delegate:self delegateQueue:NSOperationQueue.mainQueue];
+    [self startAttempt:state.candidates.firstObject downloadID:downloadID];
 }
 
-// 下载完成的代理方法
-- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location {
-    // 找到对应的下载ID
-    NSString *downloadIDForTask = nil;
-    for (NSString *key in self.downloadTasks.allKeys) {
-        NSURLSessionDownloadTask *task = self.downloadTasks[key];
-        if (task == downloadTask) {
-            downloadIDForTask = key;
-            break;
-        }
-    }
+- (void)startAttempt:(NSURL *)url downloadID:(NSString *)downloadID {
+    DYYYDownloadState *state = self.downloadStates[downloadID];
+    if (!state || state.cancelled || state.transferFinished) return;
+    NSURLSessionDownloadTask *task = [state.session downloadTaskWithURL:url];
+    task.taskDescription = downloadID;
+    [state beginTask:task atTime:NSProcessInfo.processInfo.systemUptime];
+    self.downloadTasks[downloadID] = task;
+    self.taskProgressMap[downloadID] = @0;
+    [task resume];
+}
 
-    if (!downloadIDForTask) {
+- (void)cancelDownloadID:(NSString *)downloadID {
+    DYYYDownloadState *state = self.downloadStates[downloadID];
+    if (!state || state.transferFinished) return;
+    [self.downloadTasks[downloadID] cancel];
+    if (![state cancel]) return;
+    [state.session invalidateAndCancel];
+    [self completeFailedDownload:downloadID cancelled:YES];
+}
+
+- (void)completeFailedDownload:(NSString *)downloadID cancelled:(BOOL)cancelled {
+    DYYYDownloadState *state = self.downloadStates[downloadID];
+    if (!state.transferFinished) [state cancel];
+    NSString *batchID = self.downloadToBatchMap[downloadID];
+    DYYYToast *view = self.progressViews[downloadID];
+    view.isCancelled = cancelled;
+    void (^completion)(BOOL, NSURL *) = self.completionBlocks[downloadID];
+    [self.completionBlocks removeObjectForKey:downloadID];
+    if (batchID) [self incrementCompletedAndUpdateProgressForBatch:batchID success:NO];
+    else if (!cancelled) [DYYYUtils showToast:@"下载失败，所有可用地址均未成功"];
+    if (completion) completion(NO, nil);
+    [self finalizeDownloadWithID:downloadID success:NO fileURL:nil];
+}
+
+- (void)handleDownloadFailure:(NSURLSessionTask *)task error:(NSError *)error status:(NSInteger)status {
+    NSString *downloadID = task.taskDescription;
+    DYYYDownloadState *state = downloadID ? self.downloadStates[downloadID] : nil;
+    if (![state acceptsTask:task]) return;
+    NSURL *next = [state retryURLForTask:task error:error statusCode:status];
+    if (next) {
+        [self startAttempt:next downloadID:downloadID];
         return;
     }
+    if ([state finishTask:task]) [self completeFailedDownload:downloadID cancelled:([error.domain isEqual:NSURLErrorDomain] && error.code == NSURLErrorCancelled)];
+}
 
-    // 检查是否属于批量下载
-    NSString *batchID = self.downloadToBatchMap[downloadIDForTask];
-    BOOL isBatchDownload = (batchID != nil);
+#pragma mark - NSURLSessionDownloadDelegate
 
-    // 获取该下载任务的mediaType
-    NSNumber *mediaTypeNumber = self.mediaTypeMap[downloadIDForTask];
-    MediaType mediaType = MediaTypeImage;  // 默认为图片
-    if (mediaTypeNumber) {
-        mediaType = (MediaType)[mediaTypeNumber integerValue];
+- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)task didWriteData:(int64_t)bytesWritten totalBytesWritten:(int64_t)written totalBytesExpectedToWrite:(int64_t)expected {
+    NSString *downloadID = task.taskDescription;
+    DYYYDownloadState *state = downloadID ? self.downloadStates[downloadID] : nil;
+    if (![state acceptsTask:task]) return;
+    [state updateTask:task written:written expected:expected atTime:NSProcessInfo.processInfo.systemUptime];
+    float progress = expected > 0 ? MIN(1.0, (double)written / expected) : 0;
+    self.taskProgressMap[downloadID] = @(progress);
+    void (^callback)(float) = self.downloadProgressBlocks[downloadID];
+    if (callback) callback(progress);
+    NSString *batchID = self.downloadToBatchMap[downloadID];
+    DYYYToast *view = self.progressViews[batchID ?: downloadID];
+    if (!view || view.isCancelled) return;
+    if (DYYYGetBool(@"DYYYShowDownloadDetails")) {
+        NSString *received = [NSByteCountFormatter stringFromByteCount:state.writtenBytes countStyle:NSByteCountFormatterCountStyleBinary];
+        NSString *total = state.expectedBytes > 0 ? [NSByteCountFormatter stringFromByteCount:state.expectedBytes countStyle:NSByteCountFormatterCountStyleBinary] : @"大小未知";
+        NSString *speed = [NSByteCountFormatter stringFromByteCount:(int64_t)state.bytesPerSecond countStyle:NSByteCountFormatterCountStyleBinary];
+        NSString *heading = batchID ? [NSString stringWithFormat:@"已完成 %@/%@ · 当前文件", self.batchCompletedCountMap[batchID], self.batchTotalCountMap[batchID]] : (expected > 0 ? [NSString stringWithFormat:@"下载中 %.0f%%", progress * 100] : @"下载中");
+        float displayed = batchID ? [self.batchCompletedCountMap[batchID] floatValue] / MAX(1, [self.batchTotalCountMap[batchID] floatValue]) : progress;
+        [view setProgress:displayed statusText:[NSString stringWithFormat:@"%@\n%@ / %@ · %@/s", heading, received, total, speed]];
+    } else if (!batchID) [view setProgress:progress];
+}
+
+- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)task didFinishDownloadingToURL:(NSURL *)location {
+    NSString *downloadID = task.taskDescription;
+    DYYYDownloadState *state = downloadID ? self.downloadStates[downloadID] : nil;
+    if (![state acceptsTask:task]) return;
+    NSInteger status = [task.response isKindOfClass:NSHTTPURLResponse.class] ? [(NSHTTPURLResponse *)task.response statusCode] : 0;
+    if (status >= 400 || status == 204) {
+        [self handleDownloadFailure:task error:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorBadServerResponse userInfo:nil] status:status];
+        return;
     }
-
-    // 处理下载的文件
-    NSString *fileName = [downloadTask.originalRequest.URL lastPathComponent];
-
-    if (!fileName.pathExtension.length) {
-        switch (mediaType) {
-            case MediaTypeVideo:
-                fileName = [fileName stringByAppendingPathExtension:@"mp4"];
-                break;
-            case MediaTypeImage:
-                fileName = [fileName stringByAppendingPathExtension:@"jpg"];
-                break;
-            case MediaTypeAudio:
-                fileName = [fileName stringByAppendingPathExtension:@"mp3"];
-                break;
-            case MediaTypeHeic:
-                fileName = [fileName stringByAppendingPathExtension:@"heic"];
-                break;
+    MediaType mediaType = [self.mediaTypeMap[downloadID] integerValue];
+    NSString *extension = task.originalRequest.URL.pathExtension.lowercaseString;
+    if (mediaType == MediaTypeImage || mediaType == MediaTypeHeic) {
+        NSString *format = [DYYYUtils detectFileFormat:location];
+        if (DYYYGetBool(@"DYYYEnableDownloadFallback")) {
+            if ([format isEqual:@"unknown"]) {
+                [self handleDownloadFailure:task error:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorCannotDecodeContentData userInfo:nil] status:status];
+                return;
+            }
+            extension = format;
+            // JPEG/PNG/HEIC 原样入库；WebP/GIF 复用已有动图兼容路径。
+            mediaType = ([@[@"webp", @"gif"] containsObject:format] || (mediaType == MediaTypeHeic && [@[@"heic", @"heif"] containsObject:format])) ? MediaTypeHeic : MediaTypeImage;
         }
     }
-
-    NSURL *tempDir = [NSURL fileURLWithPath:NSTemporaryDirectory()];
-    NSURL *destinationURL = [tempDir URLByAppendingPathComponent:fileName];
-
+    if (!extension.length || extension.length > 8 || [extension isEqual:@"image"]) extension = mediaType == MediaTypeVideo ? @"mp4" : (mediaType == MediaTypeAudio ? @"mp3" : @"jpg");
+    NSString *filename = [NSString stringWithFormat:@"dyyy_%@.%@", downloadID, extension];
+    NSURL *destination = [[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:filename];
     NSError *moveError;
-    if ([[NSFileManager defaultManager] fileExistsAtPath:destinationURL.path]) {
-        [[NSFileManager defaultManager] removeItemAtURL:destinationURL error:nil];
+    [NSFileManager.defaultManager moveItemAtURL:location toURL:destination error:&moveError];
+    if (moveError) {
+        [self handleDownloadFailure:task error:moveError status:status];
+        return;
     }
-
-    [[NSFileManager defaultManager] moveItemAtURL:location toURL:destinationURL error:&moveError];
-
-    if (isBatchDownload) {
-        if (!moveError) {
-            NSString *batchAlbumDescription = self.albumDescriptionMap[downloadIDForTask];
-            [DYYYManager saveMedia:destinationURL
-                         mediaType:mediaType
-                  albumDescription:batchAlbumDescription
-                        completion:^(BOOL success) {
-                          [[DYYYManager shared] incrementCompletedAndUpdateProgressForBatch:batchID success:success];
-                        }];
-        } else {
-            [[DYYYManager shared] incrementCompletedAndUpdateProgressForBatch:batchID success:NO];
-        }
-
-        [self.downloadTasks removeObjectForKey:downloadIDForTask];
-        [self.taskProgressMap removeObjectForKey:downloadIDForTask];
-        [self.mediaTypeMap removeObjectForKey:downloadIDForTask];
-        [self.albumDescriptionMap removeObjectForKey:downloadIDForTask];
+    if (![state finishTask:task]) { [NSFileManager.defaultManager removeItemAtURL:destination error:nil]; return; }
+    [state.session finishTasksAndInvalidate];
+    state.session = nil;
+    [self.downloadTasks removeObjectForKey:downloadID];
+    [self associateFileURL:destination withDownloadID:downloadID];
+    NSString *batchID = self.downloadToBatchMap[downloadID];
+    if (batchID) {
+        [DYYYManager saveMedia:destination mediaType:mediaType albumDescription:self.albumDescriptionMap[downloadID] completion:^(BOOL success) {
+            [self incrementCompletedAndUpdateProgressForBatch:batchID success:success];
+        }];
     } else {
-        void (^completionBlock)(BOOL success, NSURL *fileURL) = self.completionBlocks[downloadIDForTask];
-
-        if (!moveError) {
-            [self associateFileURL:destinationURL withDownloadID:downloadIDForTask];
-            [self.downloadTasks removeObjectForKey:downloadIDForTask];
-            [self.taskProgressMap setObject:@1.0f forKey:downloadIDForTask];
-
-            if (completionBlock) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                  completionBlock(YES, destinationURL);
-                });
-            } else {
-                [[DYYYManager shared] finalizeDownloadWithFileURL:destinationURL success:YES];
-            }
-        } else {
-            [self.downloadTasks removeObjectForKey:downloadIDForTask];
-            if (completionBlock) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                  completionBlock(NO, nil);
-                });
-            }
-            [self finalizeDownloadWithID:downloadIDForTask success:NO fileURL:nil];
-        }
+        void (^completion)(BOOL, NSURL *) = self.completionBlocks[downloadID];
+        [self.completionBlocks removeObjectForKey:downloadID];
+        if (completion) completion(YES, destination);
+        else [self finalizeDownloadWithID:downloadID success:YES fileURL:destination];
     }
 }
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
-    if (!error) {
-        return;  // 成功完成的情况已在didFinishDownloadingToURL处理
-    }
-
-    // 处理错误情况
-    NSString *downloadIDForTask = nil;
-    for (NSString *key in self.downloadTasks.allKeys) {
-        NSURLSessionTask *existingTask = self.downloadTasks[key];
-        if (existingTask == task) {
-            downloadIDForTask = key;
-            break;
-        }
-    }
-
-    if (!downloadIDForTask) {
-        return;
-    }
-
-    // 检查是否属于批量下载
-    NSString *batchID = self.downloadToBatchMap[downloadIDForTask];
-    BOOL isBatchDownload = (batchID != nil);
-
-    if (isBatchDownload) {
-        // 批量下载错误处理
-        [[DYYYManager shared] incrementCompletedAndUpdateProgressForBatch:batchID success:NO];
-
-        // 清理下载任务
-        [self.downloadTasks removeObjectForKey:downloadIDForTask];
-        [self.taskProgressMap removeObjectForKey:downloadIDForTask];
-        [self.mediaTypeMap removeObjectForKey:downloadIDForTask];
-        [self.albumDescriptionMap removeObjectForKey:downloadIDForTask];
-        [self.downloadToBatchMap removeObjectForKey:downloadIDForTask];
-    } else {
-        // 单个下载错误处理
-        void (^completionBlock)(BOOL success, NSURL *fileURL) = self.completionBlocks[downloadIDForTask];
-
-        if (error.code != NSURLErrorCancelled) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-              [DYYYUtils showToast:@"下载失败"];
-            });
-        }
-
-        if (completionBlock) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-              completionBlock(NO, nil);
-            });
-        }
-
-        [self finalizeDownloadWithID:downloadIDForTask success:NO fileURL:nil];
-    }
+    if (error) [self handleDownloadFailure:task error:error status:0];
 }
 
 // MARK: 以下都是创建保存实况的调用方法
@@ -1540,6 +1451,7 @@
         @try {
             // 获取图片 URL - originUrl 和 mediumUrl 都是 AWEURLModel 类型
             NSString *imageUrlStr = nil;
+            NSArray *imageCandidates = nil;
 
             // 首先尝试 originUrl
             AWEURLModel *originUrlModel = [imageModel valueForKey:@"originUrl"];
@@ -1547,6 +1459,7 @@
                 NSArray *urlList = [originUrlModel originURLList];
                 if (urlList && urlList.count > 0) {
                     imageUrlStr = urlList.firstObject;
+                    imageCandidates = urlList;
                 }
             }
 
@@ -1557,6 +1470,7 @@
                     NSArray *urlList = [mediumUrlModel originURLList];
                     if (urlList && urlList.count > 0) {
                         imageUrlStr = urlList.firstObject;
+                    imageCandidates = urlList;
                     }
                 }
             }
@@ -1585,8 +1499,9 @@
                 }
             }
 
-            // 普通图片 - 存储字符串而不是 NSURL
-            [normalImages addObject:imageUrlStr];
+            // 普通图片携带相同清晰度的完整 CDN 候选列表。
+            NSURL *imageURL = [DYYYUtils mediaURLWithCandidates:imageCandidates preferredURL:[NSURL URLWithString:imageUrlStr]];
+            if (imageURL) [normalImages addObject:imageURL];
         } @catch (NSException *e) {
             NSLog(@"[DYYY] 解析评论图片失败: %@", e);
         }

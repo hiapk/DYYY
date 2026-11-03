@@ -91,6 +91,14 @@ DYYY_FILES += DYYYLikePrivacy.xm \
 	Sources/Features/DYYYLikePrivacyPagePolicy.m \
 	Sources/UI/DYYYLikePrivacyCoverView.m
 
+DYYY_FILES += DYYYLocalTools.xm \
+	Sources/Media/DYYYDownloadState.m \
+	Sources/Core/DYYYLocalRecordStore.m \
+	Sources/Features/DYYYBookmarkRecord.m \
+	Sources/Features/DYYYConversationPrivacyPolicy.m \
+	Sources/Features/DYYYLocalTools.m \
+	Sources/UI/DYYYBookmarkListViewController.m
+
 DYYY_CFLAGS = -fobjc-arc -w \
 	-I$(THEOS_PROJECT_DIR)/Sources/Core \
 	-I$(THEOS_PROJECT_DIR)/Sources/Settings \

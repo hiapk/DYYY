@@ -140,6 +140,21 @@
                      }];
 }
 
+- (void)setProgress:(float)progress statusText:(NSString *)text {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self setProgress:progress statusText:text]; });
+        return;
+    }
+    [self setProgress:progress];
+    CGFloat width = MIN(310, CGRectGetWidth(self.bounds) - 32);
+    self.containerView.bounds = CGRectMake(0, 0, width, 56);
+    self.progressView.frame = CGRectMake(10, 13, 30, 30);
+    self.percentLabel.frame = CGRectMake(46, 4, width - 54, 48);
+    self.percentLabel.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightMedium];
+    self.percentLabel.numberOfLines = 2;
+    self.percentLabel.text = text;
+}
+
 - (void)dismiss {
     void (^dismissBlock)(void) = ^{
       if (self.isCancelled) {

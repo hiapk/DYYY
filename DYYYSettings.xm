@@ -27,6 +27,7 @@
 #import "DYYYHighFPSHooks.h"
 #import "DYYYSettingsHelper.h"
 #import "DYYYUtils.h"
+#import "DYYYLocalTools.h"
 #import "DYYYWatchOnceKeepPolicy.h"
 
 @class DYYYIconOptionsDialogView;
@@ -2800,6 +2801,8 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
       // 【隐私】
       NSMutableArray<AWESettingItemModel *> *privacyItems = [NSMutableArray array];
       NSArray *privacySettings = @[
+          @{@"identifier":@"DYYYHideCloseFriendChats", @"title":@"密友会话隐藏", @"subTitle":@"指定真实 UID 的私聊无未读时隐藏，有新消息时显示；通知与原生未读数保持不变", @"detail":@"", @"cellType":@37, @"imageName":@"ic_eyeslash_outlined_16"},
+          @{@"identifier":@"DYYYHiddenConversationUIDs", @"title":@"管理隐藏会话名单", @"detail":@"当前账号 · 真实 UID", @"cellType":@26, @"imageName":@"ic_list_outlined"},
           @{@"identifier" : @"DYYYCommentExactTime",
             @"title" : @"评论具体时间",
             @"subTitle" : @"开启后评论区将显示具体的发布时间而非相对时间",
@@ -2846,6 +2849,9 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
 
       for (NSDictionary *dict in privacySettings) {
           AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
+          if ([item.identifier isEqualToString:@"DYYYHiddenConversationUIDs"]) {
+              item.cellTappedBlock = ^{ [[DYYYLocalTools shared] showHiddenUIDs]; };
+          }
           if ([item.identifier isEqualToString:DYYYKeepWatchOnceMessageKey]) {
               void (^originalSwitchChangedBlock)(void) = item.switchChangedBlock;
               item.switchChangedBlock = ^{
@@ -4241,6 +4247,10 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
       // 【媒体保存】分类
       NSMutableArray<AWESettingItemModel *> *downloadItems = [NSMutableArray array];
       NSArray *downloadSettings = @[
+          @{@"identifier":@"DYYYEnableDownloadFallback", @"title":@"下载重试与图片兼容", @"subTitle":@"单个视频／图片及图集失败时更换同一资源的备用地址，最多 3 次；图片按实际编码保存", @"detail":@"", @"cellType":@37, @"imageName":@"ic_cloudarrowdown_outlined_20"},
+          @{@"identifier":@"DYYYShowDownloadDetails", @"title":@"显示下载速度与大小", @"subTitle":@"进度浮窗显示已下载／总大小与速度；批量任务显示当前文件数据", @"detail":@"", @"cellType":@37, @"imageName":@"ic_cloudarrowdown_outlined_20"},
+          @{@"identifier":@"DYYYEnableBookmarks", @"title":@"视频／主页本地书签", @"subTitle":@"长按视频或在主页菜单保存，支持分类和备注；仅保存在本机，按抖音账号隔离", @"detail":@"", @"cellType":@37, @"imageName":@"ic_star_outlined_20"},
+          @{@"identifier":@"DYYYBookmarksList", @"title":@"管理本地书签", @"detail":@"视频／主页", @"cellType":@26, @"imageName":@"ic_list_outlined"},
           @{
               @"identifier" : @"DYYYInterfaceDownload",
               @"title" : @"接口解析保存媒体",
@@ -4317,6 +4327,10 @@ void showDYYYSettingsVC(UIViewController *rootVC, BOOL hasAgreed) {
 
       for (NSDictionary *dict in downloadSettings) {
           AWESettingItemModel *item = [DYYYSettingsHelper createSettingItem:dict cellTapHandlers:cellTapHandlers];
+
+          if ([item.identifier isEqualToString:@"DYYYBookmarksList"]) {
+              item.cellTappedBlock = ^{ [[DYYYLocalTools shared] showBookmarks]; };
+          }
 
           // 特殊处理接口解析保存媒体选项
           if ([item.identifier isEqualToString:@"DYYYInterfaceDownload"]) {

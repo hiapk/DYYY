@@ -434,6 +434,37 @@ static BOOL DYYYUtilsWriteStaticImageToGIF(UIImage *image, NSURL *gifURL) {
 
 @implementation DYYYUtils
 
++ (NSURL *)mediaURLWithCandidates:(NSArray *)values preferredURL:(NSURL *)preferred {
+    NSMutableArray *urls = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet set];
+    NSArray *sources = [values isKindOfClass:NSArray.class] ? values : @[];
+    if (preferred) sources = [@[preferred] arrayByAddingObjectsFromArray:sources];
+    for (id value in sources) {
+        NSURL *url = [value isKindOfClass:NSURL.class] ? value : ([value isKindOfClass:NSString.class] ? [NSURL URLWithString:value] : nil);
+        if (!url.host.length || ![@[@"http", @"https"] containsObject:url.scheme.lowercaseString] || [seen containsObject:url.absoluteString]) continue;
+        [seen addObject:url.absoluteString];
+        [urls addObject:url];
+    }
+    if (!urls.count) return nil;
+    NSURL *result = [[NSURL alloc] initWithString:[urls.firstObject absoluteString]];
+    objc_setAssociatedObject(result, @selector(mediaCandidatesForURL:), [urls copy], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return result;
+}
+
++ (NSArray<NSURL *> *)mediaCandidatesForURL:(NSURL *)url {
+    NSArray *candidates = url ? objc_getAssociatedObject(url, @selector(mediaCandidatesForURL:)) : nil;
+    return candidates ?: (url ? @[url] : @[]);
+}
+
++ (NSString *)currentAccountID {
+    Class cls = NSClassFromString(@"AWEUserService");
+    if (![cls respondsToSelector:@selector(sharedService)]) return nil;
+    AWEUserService *service = [cls sharedService];
+    if (![service respondsToSelector:@selector(userID)]) return nil;
+    NSString *uid = service.userID;
+    return [uid isKindOfClass:NSString.class] && uid.length ? uid : nil;
+}
+
 static const void *kCurrentIPRequestCityCodeKey = &kCurrentIPRequestCityCodeKey;
 
 #pragma mark - Settings Generation (设置项代际号)

@@ -1198,12 +1198,45 @@ typedef NS_ENUM(NSUInteger, DYEdgeMode) {
 - (instancetype)init;
 - (UIView *)containerView;
 - (void)setActions:(NSArray *)actions;
+@property(nonatomic, copy) NSArray *actions;
 - (void)show;
 - (void)applyBlurEffectAndWhiteText;
 - (void)setTextColorWhiteRecursivelyInView:(UIView *)view;
 @end
 
+// 抖音 39.8.0 / 398016：私信列表第 0 节按 chatList[row] 取模型。
+@interface AWEIMChatListViewController : UIViewController
+@property(nonatomic, copy, readonly) NSArray *chatList;
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section;
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath;
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath;
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath;
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath;
+@end
+
+@interface AWEIMChatListCommonCell : UITableViewCell
+@end
+
+@interface AWEIMChatModel : NSObject
+@property(nonatomic, copy, readonly) NSString *peerID;
+@property(nonatomic, assign, readonly) BOOL isC2CConversation;
+@property(nonatomic, assign, readonly) NSInteger unreadCount;
+@property(nonatomic, assign, readonly) NSInteger realUnreadCount;
+@property(nonatomic, assign, readonly) NSInteger dotUnreadCount;
+@property(nonatomic, assign, readonly) NSInteger threadUnreadCount;
+@property(nonatomic, assign, readonly) NSInteger subscribeUnreadCountOnMute;
+@property(nonatomic, assign, readonly) NSInteger unreadMention;
+@property(nonatomic, assign, readonly) NSInteger chatCellDisplayUnreadCount;
+@property(nonatomic, assign, readonly) NSInteger chatCellDisplayDotUnreadCount;
+@end
+
+@interface AWERouter : NSObject
++ (BOOL)canOpenURLString:(NSString *)url;
++ (BOOL)transferToURLString:(NSString *)url;
+@end
+
 @interface AWEUserSheetAction : NSObject
+@property(nonatomic, copy) NSString *title;
 + (instancetype)actionWithTitle:(NSString *)title imgName:(NSString *)imgName handler:(id)handler;
 + (instancetype)actionWithTitle:(NSString *)title style:(NSUInteger)style imgName:(NSString *)imgName handler:(id)handler;
 @end
